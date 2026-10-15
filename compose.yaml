@@ -1,0 +1,36 @@
+# robot_ws — dev container settings
+# Usage (from repo root):
+#   docker compose build
+#   docker compose run --rm ros
+
+services:
+  ros:
+    image: robot_ws
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    stdin_open: true
+    tty: true
+
+    environment:
+      # GUI (WSLg). On native Ubuntu, only DISPLAY is needed.
+      - DISPLAY=${DISPLAY}
+      - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+      - XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir
+      - PULSE_SERVER=/mnt/wslg/PulseServer
+      # GPU in WSL (uncomment with the GPU lines below)
+      # - LD_LIBRARY_PATH=/usr/lib/wsl/lib
+
+    volumes:
+      - ./src:/ws/src                  # your code, edited on host
+      - /tmp/.X11-unix:/tmp/.X11-unix  # X11 GUI socket
+      - /mnt/wslg:/mnt/wslg            # WSLg (remove on native Ubuntu)
+      # GPU in WSL:
+      # - /usr/lib/wsl:/usr/lib/wsl
+
+    # GPU in WSL:
+    # devices:
+    #   - /dev/dxg:/dev/dxg
+    # ESP32 over USB (attach with usbipd first on WSL):
+    #   - /dev/ttyUSB0:/dev/ttyUSB0
