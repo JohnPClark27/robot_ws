@@ -20,6 +20,7 @@ Current progress: [session-resume.md](session-resume.md).
 | Vision acceleration | Raspberry Pi AI HAT+ (Hailo), for camera detection only | Planned |
 | Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
 | Motor control | ESP32 running micro-ROS → motor controller | Planned |
+| Drivetrain | **4 wheels, one motor each, skid-steer** (left pair / right pair) | Decided; dimensions TBD |
 
 ### Why these choices
 
@@ -27,6 +28,8 @@ Current progress: [session-resume.md](session-resume.md).
 - **A 2D lidar can't see curbs**: it scans one horizontal plane. Curbs need a sensor that looks down at the ground ahead.
 - **RTK GPS**: standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data (free NTRIP services exist in many US states).
   - If RTK doesn't fit the budget, fallback: standard GPS + heavier reliance on lidar and odometry. Expect worse lane-keeping on narrow sidewalks.
+- **Skid-steer 4WD**: better traction for curbs. Wheels skid when turning, so wheel odometry drifts in turns; the IMU corrects heading.
+- **URDF/xacro** for the robot model (not SDF): Nav2 and ROS tools need it, and Fusion 360 dimensions and meshes drop in later as variables.
 - **The AI HAT only speeds up neural-network vision.** Nav2, lidar processing, and localization still run on the Pi CPU. It uses the Pi 5's only PCIe port.
 
 ## System architecture
@@ -84,12 +87,12 @@ Rough prices. Check current listings before buying.
 |---|---|---|
 | 1–7 | Gazebo + ROS 2 basics: bridge, teleop, odometry | Done |
 | 8 | TF in RViz | Done |
-| 9 | Add an IMU to our own robot copy in `src/` | Next |
-| 10 | Add GPS (`navsat` sensor) | |
-| 11 | `robot_localization`: fuse GPS + IMU + odometry | |
-| 12 | Nav2 on the simulated robot (GPS waypoints) | |
-| 13 | Turn the robot into a ROS package + URDF/xacro with real dimensions (Fusion 360) | |
-| 14 | Add 360° lidar, cameras, and curb sensor options; compare curb sensors | |
+| 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
+| 10 | 4-wheel skid-steer robot as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Next |
+| 11 | Add GPS (`navsat` sensor) | |
+| 12 | `robot_localization`: fuse GPS + IMU + odometry | |
+| 13 | Nav2 on the simulated robot (GPS waypoints) | |
+| 14 | Swap in real dimensions and CAD meshes from Fusion 360; add 360° lidar, cameras, and curb sensor options; compare curb sensors | |
 | 15 | Build the campus world (OSM + elevation → mesh → Gazebo) | |
 | 16 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | |
 
