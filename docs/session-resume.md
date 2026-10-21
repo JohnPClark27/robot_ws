@@ -1,12 +1,12 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer.
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine).
 Related: [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
-Currently on **Step 8: get TF into RViz**. RViz shows no TF data yet.
+**Step 8 (TF in RViz) is done.** Next: **Step 9, add an IMU** to a copy of `diff_drive.sdf` in `src/`.
 
 ## Completed
 
@@ -20,58 +20,31 @@ Currently on **Step 8: get TF into RViz**. RViz shows no TF data yet.
 - [x] Drove with `teleop_twist_keyboard` and a remap
   - Debugged: publisher/subscriber counts, topic typo, runaway teleop speed
 - [x] Bridged odometry (`nav_msgs/Odometry`) and echoed position while driving
-- [x] Wrote docs in `docs/` (uncommitted at the time of writing; check `git status`)
+- [x] Wrote docs in `docs/`
+- [x] Step 8: TF in RViz. Chassis frame moves with the robot, odom frame stays fixed
+  - Debug path: `gz topic -e` on `/model/vehicle_blue/tf` → `ros2 topic info /tf` (1 publisher) → `ros2 topic echo /tf --once`
+  - Fix 1: Fixed Frame was still `map` (doesn't exist yet). Set it to `vehicle_blue/odom`
+  - Fix 2: TF is stamped with sim time, so bridge `/clock` and run RViz with `use_sim_time:=true`
 
-## In progress: Step 8, TF in RViz
+## Frames (from `diff_drive.sdf`)
 
-Goal: see the robot's frames moving in RViz.
-
-Last instruction given: add a TF bridge to the bridge command:
-
-```bash
-ros2 run ros_gz_bridge parameter_bridge \
-  /model/vehicle_blue/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist \
-  /model/vehicle_blue/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry \
-  /model/vehicle_blue/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V \
-  --ros-args -r /model/vehicle_blue/tf:=/tf
-```
-
-(Use the exact TF topic name from `gz topic -l | grep -i tf`. The remap must come after `--ros-args`, at the end.)
-
-Then `rviz2`, set Fixed Frame to the odom frame, Add → TF.
-
-**Problem:** RViz receives no TF data.
-
-### Last debugging prompt (run these and report back)
-
-```bash
-gz topic -l | grep -i tf                 # does Gazebo publish a TF topic? exact name?
-gz topic -e -t <that topic> -n 1         # does it carry data?
-ros2 topic list | grep tf                # is /tf on the ROS side?
-ros2 topic info /tf                      # bridge should be 1 publisher
-ros2 topic echo /tf --once               # does data arrive?
-```
-
-| Result | Likely cause |
+| Frame | Meaning |
 |---|---|
-| No TF topic in Gazebo | World doesn't publish TF; check `tf_topic` in `diff_drive.sdf` |
-| Gazebo has data, no `/tf` in ROS | Bridge arg wrong or remap in the wrong place |
-| `/tf` has data, RViz empty | Fixed Frame name wrong, or TF display not added |
-| `/tf` empty | Sim paused or robot hasn't moved |
-
-To report back: exact bridge command, output of the checks above, RViz Fixed Frame value and its status.
+| `vehicle_blue/odom` | Fixed start point of odometry. Use as RViz Fixed Frame |
+| `vehicle_blue/chassis` | Robot body. Moves relative to odom |
+| `map` | Not published yet. Comes later from localization / Nav2 |
 
 ## Resume on a new computer
 
 1. Install Docker (see README), clone the repo, `docker compose build`.
-2. Start the container and open 3 to 4 terminals (see [quick-commands.md](quick-commands.md)).
-3. Launch `gz sim -r diff_drive.sdf`, then the bridge command above, then teleop.
-4. Continue with the TF debugging checks.
+2. Start the container and open 4 terminals (see [quick-commands.md](quick-commands.md)).
+3. Launch `gz sim -r diff_drive.sdf`, the bridge (with `/clock` and TF), RViz on sim time, then teleop.
+4. Continue with Step 9.
 
 ## Planned next steps
 
-1. Finish TF in RViz (Step 8).
-2. Add a sensor (IMU, then GPS) to the robot SDF and bridge it.
+1. ~~Finish TF in RViz (Step 8).~~ Done.
+2. Step 9: copy `diff_drive.sdf` into `src/`, add an IMU, bridge it. Then GPS.
 3. Set up `robot_localization` to fuse GPS + IMU + odometry.
 4. Bring up Nav2 against the simulated robot.
 5. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
@@ -83,3 +56,6 @@ To report back: exact bridge command, output of the checks above, RViz Fixed Fra
 - Teleop speed keys `q`/`z` change speed 10% per press. Restart teleop to reset.
 - Teleop only reads keys when its terminal has focus.
 - Always check pub/sub counts with `ros2 topic info` before assuming the sim is broken.
+- RViz Fixed Frame must be `vehicle_blue/odom` (not `map`, not `odom`). Pick it from the dropdown or type it and press Enter.
+- Sim data is stamped with sim time: bridge `/clock` and run `rviz2 --ros-args -p use_sim_time:=true`.
+- Check the prompt: `ubuntu@...:/ws$` = container, `jpcli@...` = host (no `ros2` there).
