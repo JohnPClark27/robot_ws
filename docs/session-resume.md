@@ -1,7 +1,7 @@
 # Session resume notes
 
 Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine).
-Related: [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
+Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
