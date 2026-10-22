@@ -6,7 +6,7 @@ Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gaze
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
-**Step 9 (IMU) is done.** Next: **Step 10, 4-wheel skid-steer robot** as a ROS package + URDF/xacro (placeholder dimensions), then move the IMU onto it. See [roadmap.md](roadmap.md).
+**Step 9 (IMU) is done.** Next: **Step 10, tracked skid-steer robot** (2 treads, 2 motors per tread; approximate treads as wheels per side in sim) as a ROS package + URDF/xacro (placeholder dimensions), then move the IMU onto it. See [roadmap.md](roadmap.md).
 
 ## Completed
 
@@ -47,11 +47,18 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 3. Launch `gz sim -r /ws/src/robot_sim/worlds/diff_drive_imu.sdf`, the bridge (with `/clock`, TF, and `/imu`), RViz on sim time, then teleop.
 4. Continue with Step 10.
 
+## Notes for the group demo (2026-10-22)
+
+- Drivetrain changed: **tank treads**, one per side, each driven by 2 motors. See [roadmap.md](roadmap.md).
+- Demo scope: robot + sensors (lidar, camera, IMU, GPS) visualized in RViz, **teleoperated**. No autonomous nav yet.
+- Part 2 if time allows: rough 3D campus map from OpenStreetMap (separate from the robot).
+- Show **screen recordings** (record on the faster machine); live demo on the slower laptop only if asked.
+
 ## Planned next steps
 
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
-3. Step 10: first ROS package + 4-wheel skid-steer URDF/xacro, spawned in Gazebo; move the IMU onto it. Then GPS.
+3. Step 10: first ROS package + tracked skid-steer URDF/xacro, spawned in Gazebo; move the IMU onto it. Then GPS.
 4. Set up `robot_localization` to fuse GPS + IMU + odometry.
 5. Bring up Nav2 against the simulated robot.
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.

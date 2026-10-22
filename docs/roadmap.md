@@ -20,7 +20,7 @@ Current progress: [session-resume.md](session-resume.md).
 | Vision acceleration | Raspberry Pi AI HAT+ (Hailo), for camera detection only | Planned |
 | Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
 | Motor control | ESP32 running micro-ROS → motor controller | Planned |
-| Drivetrain | **4 wheels, one motor each, skid-steer** (left pair / right pair) | Decided; dimensions TBD |
+| Drivetrain | **2 tank treads (tracks), one per side, 2 motors per track** (4 motors total), skid-steer | Decided (changed 2026-10-22 from 4 wheels); dimensions TBD |
 
 ### Why these choices
 
@@ -28,7 +28,9 @@ Current progress: [session-resume.md](session-resume.md).
 - **A 2D lidar can't see curbs**: it scans one horizontal plane. Curbs need a sensor that looks down at the ground ahead.
 - **RTK GPS**: standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data (free NTRIP services exist in many US states).
   - If RTK doesn't fit the budget, fallback: standard GPS + heavier reliance on lidar and odometry. Expect worse lane-keeping on narrow sidewalks.
-- **Skid-steer 4WD**: better traction for curbs. Wheels skid when turning, so wheel odometry drifts in turns; the IMU corrects heading.
+- **Tracked skid-steer**: good traction and contact area for curbs. Tracks skid even more than wheels when turning, so track/encoder odometry drifts badly in turns; the IMU (and GPS) correct heading.
+  - Software-wise it's still a differential drive: both motors on a track get the same command, so the robot is controlled as "left side speed / right side speed".
+  - Sim approach (open): start by approximating each track with several wheels per side (simple, works with the DiffDrive plugin). Try Gazebo's tracked-vehicle plugins later if needed for curb tests.
 - **URDF/xacro** for the robot model (not SDF): Nav2 and ROS tools need it, and Fusion 360 dimensions and meshes drop in later as variables.
 - **The AI HAT only speeds up neural-network vision.** Nav2, lidar processing, and localization still run on the Pi CPU. It uses the Pi 5's only PCIe port.
 
@@ -88,7 +90,7 @@ Rough prices. Check current listings before buying.
 | 1–7 | Gazebo + ROS 2 basics: bridge, teleop, odometry | Done |
 | 8 | TF in RViz | Done |
 | 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
-| 10 | 4-wheel skid-steer robot as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Next |
+| 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Next |
 | 11 | Add GPS (`navsat` sensor) | |
 | 12 | `robot_localization`: fuse GPS + IMU + odometry | |
 | 13 | Nav2 on the simulated robot (GPS waypoints) | |
