@@ -25,7 +25,6 @@
     </collision>
     <inertial>
       <mass value="${body_m}"/>
-      <!-- Solid box: ixx = m/12*(w²+h²), iyy = m/12*(l²+h²), izz = m/12*(l²+w²) -->
       <inertia ixx="${body_m/12*(body_w**2 + body_h**2)}" ixy="0" ixz="0"
                iyy="${body_m/12*(body_l**2 + body_h**2)}" iyz="0"
                izz="${body_m/12*(body_l**2 + body_w**2)}"/>
@@ -72,5 +71,23 @@
     <xacro:track_wheel name="right_wheel_middle" x="0" y="${-body_w/2 - wheel_w/2}"/>
     <xacro:track_wheel name="right_wheel_front" x="${wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
     <xacro:track_wheel name="right_wheel_rear" x="${-wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
+
+    <gazebo>
+      <plugin filename="gz-sim-diff-drive-system"
+              name="gz::sim::systems::DiffDrive">
+        <left_joint>left_wheel_front_joint</left_joint>
+        <left_joint>left_wheel_middle_joint</left_joint>
+        <left_joint>left_wheel_rear_joint</left_joint>
+        <right_joint>right_wheel_front_joint</right_joint>
+        <right_joint>right_wheel_middle_joint</right_joint>
+        <right_joint>right_wheel_rear_joint</right_joint>
+        <wheel_separation>${body_w+wheel_w}</wheel_separation>
+        <wheel_radius>${wheel_r}</wheel_radius>
+        <topic>cmd_vel</topic>
+        <odom_topic>odom</odom_topic>
+        <frame_id>odom</frame_id>
+        <child_frame_id>base_link</child_frame_id>
+      </plugin>
+    </gazebo>
 
 </robot>
