@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<robot name="ugv" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Placeholder dimensions (meters, kg). Replace with real ones later. -->
+  <xacro:property name="body_l" value="0.60"/>
+  <xacro:property name="body_w" value="0.40"/>
+  <xacro:property name="body_h" value="0.20"/>
+  <xacro:property name="body_m" value="15.0"/>
+
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="${body_l} ${body_w} ${body_h}"/>
+      </geometry>
+    </visual>
+    <collision>
+        <geometry>
+            <box size="${body_l} ${body_w} ${body_h}"/>
+        </geometry>
+    </collision>
+    <inertial>
+      <mass value="${body_m}"/>
+      <!-- Solid box: ixx = m/12*(w²+h²), iyy = m/12*(l²+h²), izz = m/12*(l²+w²) -->
+      <inertia ixx="${body_m/12*(body_w**2 + body_h**2)}" ixy="0" ixz="0"
+               iyy="${body_m/12*(body_l**2 + body_h**2)}" iyz="0"
+               izz="${body_m/12*(body_l**2 + body_w**2)}"/>
+    </inertial>
+  </link>
+
+</robot>
