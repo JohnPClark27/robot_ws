@@ -1,12 +1,13 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
-**Step 9 (IMU) is done.** Next: **Step 10, tracked skid-steer robot** (2 treads, 2 motors per tread; approximate treads as wheels per side in sim) as a ROS package + URDF/xacro (placeholder dimensions), then move the IMU onto it. See [roadmap.md](roadmap.md).
+**Step 10 in progress.** My own robot (`ugv_description` package) spawns in Gazebo and sits on its 6 wheels. Not drivable yet.
+Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then sensors (IMU → lidar → camera → GPS). See [roadmap.md](roadmap.md).
 
 ## Completed
 
@@ -31,6 +32,16 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
   - Checked while driving a circle (v=0.5, ω=0.3): `angular_velocity.z` = 0.3, `linear_acceleration.y` = 0.15 (v·ω, centripetal), `linear_acceleration.z` = 9.8 (gravity)
   - Bridged: `/imu@sensor_msgs/msg/Imu[gz.msgs.IMU`, `ros2 topic hz /imu` ≈ 49 Hz (wall clock; sim real-time factor slightly < 1)
   - To fix later: covariances are all 0 (add `<noise>`), `frame_id` is Gazebo-style `vehicle_blue::chassis::imu_sensor` (needs a real TF frame like `imu_link`)
+- [x] Rendering check (2026-10-23): `gz sim -r gpu_lidar_sensor.sdf` + GUI plugin "Visualize Lidar" shows rays hitting objects. GPU lidar works on this machine
+- [x] Step 10 (partial, 2026-10-23): `ugv_description` package
+  - Created with `ros2 pkg create ugv_description --build-type ament_cmake --license Apache-2.0`, deleted the C++ `include/` and `src/` folders, added `urdf/` + `launch/`
+  - `CMakeLists.txt`: `install(DIRECTORY urdf launch DESTINATION share/${PROJECT_NAME})` so launch files can find them via `get_package_share_directory`
+  - `package.xml` exec_depends: `robot_state_publisher`, `xacro`, `joint_state_publisher`, `ros_gz_sim`
+  - `urdf/ugv.urdf.xacro`: `base_link` box + `track_wheel` macro called 6 times (3 per side). Each wheel = cylinder link + `continuous` joint, axis `0 1 0`, rotated `rpy="${pi/2} 0 0"` in visual, collision and inertial
+  - `launch/display.launch.py`: robot_state_publisher + joint_state_publisher, for viewing in RViz (Fixed Frame `base_link`, add RobotModel on `/robot_description` + TF)
+  - `launch/sim.launch.py`: robot_state_publisher (`use_sim_time: True`) + Gazebo (`gz_args: -r empty.sdf`) + `ros_gz_sim create -topic robot_description -name ugv -z 0.2`
+  - Learned: wheel TF errors ("No transform from left_wheel_front") = nothing publishing `/joint_states`. robot_state_publisher needs joint angles for non-fixed joints
+  - Learned: `ros2 run ... -p robot_description:="$(xacro ...)"` fails (the `-p` value is parsed as YAML). Use a launch file with `ParameterValue(Command(['xacro ', file]), value_type=str)`
 
 ## Frames (from `diff_drive.sdf`)
 
@@ -40,12 +51,28 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 | `vehicle_blue/chassis` | Robot body. Moves relative to odom |
 | `map` | Not published yet. Comes later from localization / Nav2 |
 
+## My robot (`ugv_description`, placeholder dimensions)
+
+| Property | Value | Meaning |
+|---|---|---|
+| `body_l` × `body_w` × `body_h` | 0.60 × 0.40 × 0.20 m | Body box, centered on `base_link` |
+| `body_m` | 15 kg | Body mass (inertia: ixx 0.25, iyy 0.5, izz 0.65) |
+| `wheel_r`, `wheel_w`, `wheel_m` | 0.10 m, 0.08 m, 1 kg | Each of the 6 wheels |
+| `wheel_x_spacing` | 0.22 m | Front/rear wheels at x = ±0.22, middle at 0 |
+| wheel y | ±(body_w/2 + wheel_w/2) = ±0.24 m | Left = +y, right = −y |
+| `wheel_z` | −0.05 m | Wheel centers below `base_link`; wheel bottoms 0.15 m below, so spawn `-z 0.2` |
+
+- Frames: `base_link` + `left_wheel_{front,middle,rear}`, `right_wheel_{front,middle,rear}`. Joints are `<name>_joint`.
+- ROS axes: x forward, y left, z up.
+
 ## Resume on a new computer
 
 1. Install Docker (see README), clone the repo, `docker compose build`.
-2. Start the container and open 4 terminals (see [quick-commands.md](quick-commands.md)).
-3. Launch `gz sim -r /ws/src/robot_sim/worlds/diff_drive_imu.sdf`, the bridge (with `/clock`, TF, and `/imu`), RViz on sim time, then teleop.
-4. Continue with Step 10.
+2. Terminal 1 (host `jpcli@`, repo root): `docker compose run --rm ros`. This is the main shell; don't `exit` it until done.
+3. Terminal 1 (container `ubuntu@`, `/ws`): `colcon build --symlink-install && source install/setup.bash` (needed in every new container).
+4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (or `display.launch.py` for RViz only).
+5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it (see [quick-commands.md](quick-commands.md)).
+6. Continue with Step 10: DiffDrive + teleop.
 
 ## Notes for the group demo (2026-10-22)
 
@@ -58,7 +85,13 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
-3. Step 10: first ROS package + tracked skid-steer URDF/xacro, spawned in Gazebo; move the IMU onto it. Then GPS.
+3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~. Remaining:
+   - Add the DiffDrive plugin in a `<gazebo>` tag (homework: how to list the 6 joints in `<left_joint>`/`<right_joint>`? See `diff_drive_skid.sdf` and the [DiffDrive API](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1DiffDrive.html). Also `<wheel_separation>` and `<wheel_radius>` from the xacro properties)
+   - Add the JointStatePublisher plugin (replaces the `jsp` node in sim)
+   - Add `ros_gz_bridge` to `sim.launch.py`: `/clock`, `/cmd_vel`, odometry, `/tf`, `/joint_states`
+   - Drive with `teleop_twist_keyboard`, view in RViz on sim time
+   - Sensors: IMU → 360° lidar → camera → GPS. Then obstacles in the world, save an RViz config, record the demo
+   - Try writing the sensor blocks myself from the [Gazebo sensors docs](https://gazebosim.org/docs/harmonic/sensors), using Step 9 as a template
 4. Set up `robot_localization` to fuse GPS + IMU + odometry.
 5. Bring up Nav2 against the simulated robot.
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
@@ -76,3 +109,20 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 - `Permission denied` on a `.sdf` = forgot `cp`; bash tried to run the file. Read what the shell was doing before reaching for `sudo`.
 - `QStandardPaths: wrong permissions on runtime directory /mnt/wslg/...` is a harmless WSLg warning. Don't chmod it.
 - Files in `/ws/src` (container) = `src/` (host), via bind mount. Anything else in the container is gone after `--rm`.
+  - That includes `build/`, `install/`, `log/`: **new container → `colcon build` first**, or you get `Package 'ugv_description' not found ... searching: ['/opt/ros/jazzy']`.
+- **Run `pwd` and check the prompt before any `rm -r`.** On 2026-10-23, `rm -r include src` ran on the host at repo root and deleted the whole `src/`. `rm` reported the error for `include` but silently deleted `src`.
+  - Recovered with `git restore src/` (only committed files come back). Commit early.
+  - After deleting/recreating `src/` on the host, the container's `/ws/src` mount points at the old deleted folder (`Unable to read current working directory`). Exit and restart the container.
+- **`docker compose run` = new container. `docker exec` = another shell in the same container.** Keep exactly one container running.
+  - Nodes in separate containers didn't see each other (`ros2 node list` empty).
+  - `docker ps` lists newest first, so `head -1` in the exec command picks the newest container if there are two.
+  - The container stops when its first (`docker compose run`) shell exits, killing all exec shells too.
+  - `docker exec ... requires at least 2 arguments` = `$(docker ps -q ...)` was empty (no container running).
+- `ros2 topic echo` hanging = no messages. Check `ros2 node list` and `ros2 topic info <topic>` (publisher count) before changing code.
+- xacro: anything to calculate or substitute goes in `${ }`. Without it the text is copied literally (e.g. `ixx="wheel_m/12*..."`).
+- xacro macro calls go **after** `</xacro:macro>`, not inside it (calling it inside = infinite recursion).
+- URDF cylinders stand along z. Wheels need `rpy="${pi/2} 0 0"` in visual, collision **and** inertial, and joint axis `0 1 0`.
+- No `<material>` = default color (red in RViz).
+- New files under `urdf/` or `launch/` need a rebuild; edits to existing files don't (`--symlink-install`).
+- `joint_state_publisher_gui` (slider GUI) is not in the image; plain `joint_state_publisher` is.
+- `msrdc.exe` on Windows is WSLg's Remote Desktop client that draws Linux GUI windows. Normal; don't kill it.
