@@ -6,6 +6,11 @@
   <xacro:property name="body_w" value="0.40"/>
   <xacro:property name="body_h" value="0.20"/>
   <xacro:property name="body_m" value="15.0"/>
+  <xacro:property name="wheel_r" value="0.10"/>
+  <xacro:property name="wheel_w" value="0.08"/>
+  <xacro:property name="wheel_m" value="1.0"/>
+  <xacro:property name="wheel_x_spacing" value="0.22"/>  <!-- front/rear wheel distance from center -->
+  <xacro:property name="wheel_z" value="-0.05"/>         <!-- wheel center below body center -->
 
   <link name="base_link">
     <visual>
@@ -26,5 +31,46 @@
                izz="${body_m/12*(body_l**2 + body_w**2)}"/>
     </inertial>
   </link>
+
+    <xacro:macro name="track_wheel" params="name x y">
+    <link name="${name}">
+      <visual>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_r}" length="${wheel_w}"/>
+        </geometry>
+      </visual>
+      <collision>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+            <cylinder radius="${wheel_r}" length = "${wheel_w}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin rpy="${pi/2} 0 0"/>
+        <mass value="${wheel_m}"/>
+        <!-- Solid cylinder (axis = its own z): ixx = iyy = m/12*(3r² + w²), izz = m*r²/2 -->
+        <inertia ixx="${wheel_m/12*(3*(wheel_r**2)+wheel_w**2)}" ixy="0" ixz="0"
+                 iyy="${wheel_m/12*(3*(wheel_r**2)+wheel_w**2)}" iyz="0"
+                 izz="${wheel_m*(wheel_r**2)/2}"/>
+      </inertial>
+    </link>
+
+    
+
+    <joint name="${name}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <origin xyz="${x} ${y} ${wheel_z}"/>
+      <axis xyz="0 1 0"/>  <!-- which axis does a wheel spin around? -->
+    </joint>
+  </xacro:macro>
+
+    <xacro:track_wheel name="left_wheel_front" x="${wheel_x_spacing}" y="${body_w/2 + wheel_w/2}"/>
+    <xacro:track_wheel name="left_wheel_rear" x="${-wheel_x_spacing}" y="${body_w/2 + wheel_w/2}"/>
+    <xacro:track_wheel name="left_wheel_middle" x="0" y="${body_w/2 + wheel_w/2}"/>
+    <xacro:track_wheel name="right_wheel_middle" x="0" y="${-body_w/2 - wheel_w/2}"/>
+    <xacro:track_wheel name="right_wheel_front" x="${wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
+    <xacro:track_wheel name="right_wheel_rear" x="${-wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
 
 </robot>
