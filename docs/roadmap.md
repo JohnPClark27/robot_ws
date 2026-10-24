@@ -90,7 +90,7 @@ Rough prices. Check current listings before buying.
 | 1–7 | Gazebo + ROS 2 basics: bridge, teleop, odometry | Done |
 | 8 | TF in RViz | Done |
 | 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
-| 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | In progress: drives with teleop, RViz config saved (2026-10-24); sensors (IMU first) next |
+| 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | In progress: drives with teleop, RViz config saved, IMU with noise (2026-10-24); 360° lidar next |
 | 11 | Add GPS (`navsat` sensor) | |
 | 12 | `robot_localization`: fuse GPS + IMU + odometry | |
 | 13 | Nav2 on the simulated robot (GPS waypoints) | |

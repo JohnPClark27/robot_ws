@@ -1,13 +1,14 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 **Step 10: drivetrain done.** My own robot (`ugv_description` package) spawns in Gazebo, drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
-Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro, then 360° lidar → camera → GPS. See [roadmap.md](roadmap.md).
+IMU is on the ugv too (`imu_link`, `/imu`, with noise).
+Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the body), then camera → GPS. See [roadmap.md](roadmap.md).
 
 ## Completed
 
@@ -51,7 +52,16 @@ Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro,
   - `ros_gz_bridge` node in `sim.launch.py`: `/clock` `[`, `/cmd_vel` `]`, `/odom` `[`, `/joint_states` (`gz.msgs.Model`) `[`, `/model/ugv/tf` (`gz.msgs.Pose_V`) `[` with `remappings=[('/model/ugv/tf', '/tf')]`
   - Found the TF topic with `gz topic -l | grep tf`, its type with `gz topic -i -t /model/ugv/tf`
   - RViz config saved to `src/ugv_description/rviz/ugv.rviz` (Fixed Frame `odom`, RobotModel, TF), `rviz` added to `install(DIRECTORY ...)` in CMakeLists
-  - Known quirk: DiffDrive odom is 2D (z = 0), so `base_link` sits at ground level in RViz (robot looks half-sunk). Fix later with a `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html))
+  - Known quirk (see below): DiffDrive odom is 2D (z = 0), so `base_link` sits at ground level in RViz (robot looks half-sunk). Fix later with a `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html))
+
+- [x] Step 10 IMU (2026-10-24): IMU on the ugv
+  - `imu_link` (no geometry) + fixed `imu_joint` from `base_link`, `xyz="0 0 ${body_h/2}"` (top of the body). Fixed joints → `robot_state_publisher` publishes once on `/tf_static` (stamp 0 is normal)
+  - `<gazebo reference="imu_link">` + `<sensor type="imu">`: `always_on 1`, `update_rate 50`, `topic imu`, `<gz_frame_id>imu_link</gz_frame_id>`
+  - Why `gz_frame_id`: URDF→SDF merges fixed-joint links into the parent, so without it the frame_id isn't a real TF frame. Fixes the Step 9 to-do
+  - `gz-sim-imu-system` / `gz::sim::systems::Imu` in a model-level `<gazebo>` block (works the same as world-level)
+  - Bridge: `/imu@sensor_msgs/msg/Imu[gz.msgs.IMU`
+  - Noise: `<imu><angular_velocity>` / `<linear_acceleration>` with `<x|y|z><noise type="gaussian">`, stddev 0.009 rad/s (gyro), 0.017 m/s² (accel). Placeholder cheap-MEMS values; replace with datasheet values
+  - Result at rest: `frame_id: imu_link`, accel z ≈ 9.8 ± 0.02. Gazebo fills covariance = stddev² on the diagonal (0.000081 gyro, 0.000289 accel). **`orientation_covariance` stays all 0** (no orientation noise) → handle in `robot_localization` config (Step 12)
 
 ## Frames (`ugv`)
 
@@ -60,6 +70,7 @@ Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro,
 | `odom` | DiffDrive → bridge → `/tf` | Fixed start point of odometry. RViz Fixed Frame |
 | `base_link` | DiffDrive (`odom` → `base_link`) | Robot body center |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
+| `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU, 0.1 m above `base_link` (top of body) |
 | `map` | Not yet | Comes later from localization / Nav2 |
 
 ## Frames (old, from `diff_drive.sdf`)
@@ -92,7 +103,7 @@ Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro,
 4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Continue with sensors: IMU in the ugv xacro.
+7. Continue with sensors: 360° lidar on the ugv.
 
 ## Notes for the group demo (2026-10-22)
 
@@ -106,7 +117,9 @@ Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro,
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
 3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~, ~~DiffDrive~~, ~~JointStatePublisher~~, ~~bridge~~, ~~teleop + RViz~~, ~~save RViz config~~. Remaining:
-   - Sensors: **IMU (next)** → 360° lidar → camera → GPS. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block, the world-level system plugin, and a bridge entry
+   - Sensors: ~~IMU~~ → **360° lidar (next)** → camera → GPS. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block with `gz_frame_id`, the system plugin, and a bridge entry
+     - Lidar plan: `lidar_link` with a small cylinder visual (RPLIDAR C1 ≈ 0.028 m radius, 0.04 m tall). Bottom of the cylinder on top of the body: z = `body_h/2 + lidar_h/2` (add a `lidar_h` property). Scan plane must clear the body or the rays hit the robot
+     - Lidar needs the **Sensors** system (`gz-sim-sensors-system`, rendering), not the Imu system. Then `sensor_msgs/msg/LaserScan` bridge + LaserScan display in RViz
    - Optional: start RViz from `sim.launch.py` with the saved config
    - Then obstacles in the world, record the demo
    - Try writing the sensor blocks myself from the [Gazebo sensors docs](https://gazebosim.org/docs/harmonic/sensors), using Step 9 as a template
@@ -122,6 +135,10 @@ Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro,
 - `package.xml` only lists dependencies. It never affects topic names.
 - A topic in `ros2 topic list` only means it's advertised. Use `ros2 topic echo --once` / `hz` to confirm data.
 - `gz topic -i -t <topic>` shows a Gazebo topic's message type. Query the exact name from `gz topic -l`.
+- Python list of strings: always end each line with a comma. A missing comma silently joins two strings into one (implicit concatenation) and breaks **both** bridge entries.
+- XML: attribute values need quotes, attributes need a space between them, every tag needs a close. Run `xacro ... | grep` after each edit; the parse error names the line.
+- `<noise type="gaussian">`: `type` is an attribute (space, not `_`), and it's spelled gaussian.
+- `A message was lost!!!` on `ros2 topic echo` = the echo subscriber dropped samples while connecting. Harmless for `--once`; matters only if a real node keeps losing messages.
 - Set plugin `<topic>` names to ROS conventions (`cmd_vel`, `odom`, `joint_states`) to avoid remaps.
 - DiffDrive keeps the last command; stop with a zero Twist.
 - Teleop speed keys `q`/`z` change speed 10% per press. Restart teleop to reset.

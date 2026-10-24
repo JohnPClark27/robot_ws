@@ -56,9 +56,12 @@ gz topic -t /cmd_vel -m gz.msgs.Twist -p 'linear: {x: 0.0}'   # stop
 ### ugv: check the ROS side
 
 ```bash
-ros2 topic list                                 # /clock /cmd_vel /joint_states /odom /tf ...
+ros2 topic list                                 # /clock /cmd_vel /imu /joint_states /odom /tf ...
 ros2 topic info /tf
 ros2 topic echo /tf --once                      # odom -> base_link, wheel frames
+ros2 topic echo /tf_static --once               # base_link -> imu_link (fixed joints)
+ros2 topic echo /imu --field linear_acceleration   # z ≈ 9.8 ± noise
+ros2 topic echo /imu --once --field linear_acceleration_covariance
 xacro src/ugv_description/urdf/ugv.urdf.xacro | grep -A14 "<gazebo>"   # expanded ${ } values
 ```
 
