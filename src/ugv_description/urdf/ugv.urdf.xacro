@@ -72,6 +72,15 @@
     <xacro:track_wheel name="right_wheel_front" x="${wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
     <xacro:track_wheel name="right_wheel_rear" x="${-wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
 
+    <link name="imu_link"/>
+
+    <joint name = "imu_joint" type = "fixed">
+      <parent link = "base_link"/>
+      <child link = "imu_link"/>
+      <origin xyz="0 0 ${body_h/2}"/>
+    </joint>
+    
+
     <gazebo>
       <plugin filename="gz-sim-diff-drive-system"
               name="gz::sim::systems::DiffDrive">
@@ -94,5 +103,18 @@
       <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
         <topic>/joint_states</topic>
       </plugin>
+    </gazebo>
+
+    <gazebo reference = "imu_link">
+      <sensor name = "imu" type = "imu">
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <topic>imu</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
+      </sensor>
+    </gazebo>
+
+    <gazebo>
+      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     </gazebo>
 </robot>
