@@ -34,5 +34,20 @@ def generate_launch_description():
         output='screen',
     )
 
+    bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            # format: '<topic>@<ros type>[<gz type>'   ( [ gz→ROS, ] ROS→gz )
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+            '/model/ugv/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
+        ],
+        remappings=[('/model/ugv/tf', '/tf')],
+        output='screen',
+    )
+
     
-    return LaunchDescription([rsp,gz, spawn])
+    return LaunchDescription([rsp,gz, spawn, bridge])
