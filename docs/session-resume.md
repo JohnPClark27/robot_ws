@@ -1,13 +1,13 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
-**Step 10 in progress.** My own robot (`ugv_description` package) spawns in Gazebo and sits on its 6 wheels. Not drivable yet.
-Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then sensors (IMU → lidar → camera → GPS). See [roadmap.md](roadmap.md).
+**Step 10: drivetrain done.** My own robot (`ugv_description` package) spawns in Gazebo, drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
+Next: **sensors on the ugv, starting with the IMU** written into the URDF/xacro, then 360° lidar → camera → GPS. See [roadmap.md](roadmap.md).
 
 ## Completed
 
@@ -42,8 +42,27 @@ Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then s
   - `launch/sim.launch.py`: robot_state_publisher (`use_sim_time: True`) + Gazebo (`gz_args: -r empty.sdf`) + `ros_gz_sim create -topic robot_description -name ugv -z 0.2`
   - Learned: wheel TF errors ("No transform from left_wheel_front") = nothing publishing `/joint_states`. robot_state_publisher needs joint angles for non-fixed joints
   - Learned: `ros2 run ... -p robot_description:="$(xacro ...)"` fails (the `-p` value is parsed as YAML). Use a launch file with `ParameterValue(Command(['xacro ', file]), value_type=str)`
+- [x] Step 10 drivetrain (2026-10-24): drivable ugv
+  - DiffDrive plugin in a `<gazebo>` block in the xacro: one `<left_joint>`/`<right_joint>` tag **per joint** (3 each), `wheel_separation = ${body_w+wheel_w}` (0.48, left-to-right wheel centers, not `wheel_x_spacing`), `wheel_radius = ${wheel_r}`
+  - Set `<topic>cmd_vel</topic>`, `<odom_topic>odom</odom_topic>`, `<frame_id>odom</frame_id>`, `<child_frame_id>base_link</child_frame_id>`. Without `<topic>` it would be `/model/ugv/cmd_vel` and teleop would need a remap
+  - JointStatePublisher plugin in a second `<gazebo>` block, `<topic>joint_states</topic>` (the name `robot_state_publisher` subscribes to). No `<joint_name>` = all joints. Replaces the `jsp` node in sim
+  - Checked on the Gazebo side first: `gz topic -l`, `gz topic -e -t /joint_states -n 1`. Driving straight at 0.3 m/s: all 6 wheel angles equal and positive (~29.9 rad ≈ 3.0 m / 0.1 m radius)
+  - Learned: joint angles show commanded wheel rotation, not real motion. Slip is invisible to wheel odometry, so it drifts (→ fuse IMU/GPS later)
+  - `ros_gz_bridge` node in `sim.launch.py`: `/clock` `[`, `/cmd_vel` `]`, `/odom` `[`, `/joint_states` (`gz.msgs.Model`) `[`, `/model/ugv/tf` (`gz.msgs.Pose_V`) `[` with `remappings=[('/model/ugv/tf', '/tf')]`
+  - Found the TF topic with `gz topic -l | grep tf`, its type with `gz topic -i -t /model/ugv/tf`
+  - RViz config saved to `src/ugv_description/rviz/ugv.rviz` (Fixed Frame `odom`, RobotModel, TF), `rviz` added to `install(DIRECTORY ...)` in CMakeLists
+  - Known quirk: DiffDrive odom is 2D (z = 0), so `base_link` sits at ground level in RViz (robot looks half-sunk). Fix later with a `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html))
 
-## Frames (from `diff_drive.sdf`)
+## Frames (`ugv`)
+
+| Frame | Published by | Meaning |
+|---|---|---|
+| `odom` | DiffDrive → bridge → `/tf` | Fixed start point of odometry. RViz Fixed Frame |
+| `base_link` | DiffDrive (`odom` → `base_link`) | Robot body center |
+| `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
+| `map` | Not yet | Comes later from localization / Nav2 |
+
+## Frames (old, from `diff_drive.sdf`)
 
 | Frame | Meaning |
 |---|---|
@@ -70,9 +89,10 @@ Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then s
 1. Install Docker (see README), clone the repo, `docker compose build`.
 2. Terminal 1 (host `jpcli@`, repo root): `docker compose run --rm ros`. This is the main shell; don't `exit` it until done.
 3. Terminal 1 (container `ubuntu@`, `/ws`): `colcon build --symlink-install && source install/setup.bash` (needed in every new container).
-4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (or `display.launch.py` for RViz only).
-5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it (see [quick-commands.md](quick-commands.md)).
-6. Continue with Step 10: DiffDrive + teleop.
+4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
+5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
+6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
+7. Continue with sensors: IMU in the ugv xacro.
 
 ## Notes for the group demo (2026-10-22)
 
@@ -85,12 +105,10 @@ Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then s
 
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
-3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~. Remaining:
-   - Add the DiffDrive plugin in a `<gazebo>` tag (homework: how to list the 6 joints in `<left_joint>`/`<right_joint>`? See `diff_drive_skid.sdf` and the [DiffDrive API](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1DiffDrive.html). Also `<wheel_separation>` and `<wheel_radius>` from the xacro properties)
-   - Add the JointStatePublisher plugin (replaces the `jsp` node in sim)
-   - Add `ros_gz_bridge` to `sim.launch.py`: `/clock`, `/cmd_vel`, odometry, `/tf`, `/joint_states`
-   - Drive with `teleop_twist_keyboard`, view in RViz on sim time
-   - Sensors: IMU → 360° lidar → camera → GPS. Then obstacles in the world, save an RViz config, record the demo
+3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~, ~~DiffDrive~~, ~~JointStatePublisher~~, ~~bridge~~, ~~teleop + RViz~~, ~~save RViz config~~. Remaining:
+   - Sensors: **IMU (next)** → 360° lidar → camera → GPS. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block, the world-level system plugin, and a bridge entry
+   - Optional: start RViz from `sim.launch.py` with the saved config
+   - Then obstacles in the world, record the demo
    - Try writing the sensor blocks myself from the [Gazebo sensors docs](https://gazebosim.org/docs/harmonic/sensors), using Step 9 as a template
 4. Set up `robot_localization` to fuse GPS + IMU + odometry.
 5. Bring up Nav2 against the simulated robot.
@@ -99,6 +117,12 @@ Next: **DiffDrive + JointStatePublisher plugins, ros_gz_bridge, teleop**, then s
 ## Gotchas so far
 
 - Bridge direction: `[` Gazebo→ROS, `]` ROS→Gazebo, `@` both.
+- Bridge message types are case-sensitive (`gz.msgs.Pose_V`, not `Pose_v`). A bad type only breaks that one topic; check Terminal 1 for the error.
+- Launch `remappings=` is a list of string tuples: `[('/from', '/to')]`. Unquoted topic names = Python syntax error.
+- `package.xml` only lists dependencies. It never affects topic names.
+- A topic in `ros2 topic list` only means it's advertised. Use `ros2 topic echo --once` / `hz` to confirm data.
+- `gz topic -i -t <topic>` shows a Gazebo topic's message type. Query the exact name from `gz topic -l`.
+- Set plugin `<topic>` names to ROS conventions (`cmd_vel`, `odom`, `joint_states`) to avoid remaps.
 - DiffDrive keeps the last command; stop with a zero Twist.
 - Teleop speed keys `q`/`z` change speed 10% per press. Restart teleop to reset.
 - Teleop only reads keys when its terminal has focus.

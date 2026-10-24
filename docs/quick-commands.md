@@ -1,6 +1,6 @@
 # Quick commands
 
-Copy-paste cheat sheet for getting the diff-drive sim running. Explanations: [gazebo-basics-log.md](gazebo-basics-log.md).
+Copy-paste cheat sheet. Explanations: [gazebo-basics-log.md](gazebo-basics-log.md), progress: [session-resume.md](session-resume.md).
 
 ## Start the container (host, repo root)
 
@@ -14,7 +14,55 @@ docker compose run --rm ros
 docker exec -it $(docker ps -q --filter ancestor=robot_ws | head -1) bash
 ```
 
-## Drive the robot + TF in RViz: 4 terminals
+Then in every exec shell: `source install/setup.bash`.
+
+## My robot (`ugv`): sim + RViz + teleop, 3 terminals
+
+New container? Build first (Terminal 1, `/ws`):
+```bash
+colcon build --symlink-install && source install/setup.bash
+```
+
+**Terminal 1: Gazebo + robot_state_publisher + spawn + bridge**
+```bash
+ros2 launch ugv_description sim.launch.py
+```
+
+**Terminal 2: RViz with saved config, on sim time**
+```bash
+rviz2 -d $(ros2 pkg prefix ugv_description)/share/ugv_description/rviz/ugv.rviz --ros-args -p use_sim_time:=true
+```
+
+**Terminal 3: keyboard teleop** (no remap needed: everything is on `/cmd_vel`)
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+RViz only (no Gazebo, fake joint angles):
+```bash
+ros2 launch ugv_description display.launch.py
+```
+
+### ugv: check the Gazebo side (before blaming the bridge)
+
+```bash
+gz topic -l | grep -E "cmd_vel|odom|joint|tf"
+gz topic -i -t /model/ugv/tf                    # message type of a gz topic
+gz topic -e -t /joint_states -n 1 | grep -E 'name: ".*_joint"|position:'
+gz topic -t /cmd_vel -m gz.msgs.Twist -p 'linear: {x: 0.3}'
+gz topic -t /cmd_vel -m gz.msgs.Twist -p 'linear: {x: 0.0}'   # stop
+```
+
+### ugv: check the ROS side
+
+```bash
+ros2 topic list                                 # /clock /cmd_vel /joint_states /odom /tf ...
+ros2 topic info /tf
+ros2 topic echo /tf --once                      # odom -> base_link, wheel frames
+xacro src/ugv_description/urdf/ugv.urdf.xacro | grep -A14 "<gazebo>"   # expanded ${ } values
+```
+
+## Old: `vehicle_blue` (diff_drive.sdf) + TF in RViz: 4 terminals
 
 **Terminal 1: simulator**
 ```bash
