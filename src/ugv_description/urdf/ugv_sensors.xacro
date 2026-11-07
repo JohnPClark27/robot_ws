@@ -85,4 +85,40 @@
         </plugin>
     </gazebo>
 
+<!-- Cameras -->
+    <xacro:macro name="cam" params="name x y z yaw">
+    <link name="${name}_link">
+        <visual><geometry><box size="0.012 0.025 0.024"/></geometry></visual>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+        <parent link = "base_link"/>
+        <child link = "${name}_link"/>
+        <origin xyz="${x} ${y} ${z}" rpy = "0 0 ${yaw}"/>
+    </joint>
+    <link name="${name}_optical_link"/>
+    <joint name="${name}_optical_joint" type="fixed">
+        <parent link = "${name}_link"/>
+        <child link = "${name}_optical_link"/>
+        <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+        
+    </joint>
+
+
+    <!-- next step: <gazebo reference="${name}_link"> camera sensor -->
+    </xacro:macro>
+
+
+    
+    <xacro:cam name="front_cam"
+           x="${body_l/2 + 0.012/2}"
+           y="0"
+           z="${body_h/2 - 0.024/2}"
+           yaw="0"/>
+
+    <xacro:cam name="rear_cam"
+           x="${-body_l/2 - 0.012/2}"
+           y="0"
+           z="${body_h/2 - 0.024/2}"
+           yaw="${pi}"/>
+
 </robot>
