@@ -45,7 +45,11 @@ def generate_launch_description():
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
             '/model/ugv/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan'
+            '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/front_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/front_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/rear_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/rear_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo'
         ],
         remappings=[('/model/ugv/tf', '/tf')],
         output='screen',
