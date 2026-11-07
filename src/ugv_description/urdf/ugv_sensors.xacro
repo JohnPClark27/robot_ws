@@ -35,4 +35,22 @@
       <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     </gazebo>
 
+    <!-- 360 Lidar -->
+    <xacro:property name="lidar_r" value="0.028"/>
+    <xacro:property name="lidar_h" value="0.04"/>
+
+    <link name = "lidar_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${lidar_r}" length="${lidar_h}"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name = "lidar_joint" type = "fixed">
+        <parent link = "base_link"/>
+        <child link = "lidar_link"/>
+        <origin xyz="0 0 ${body_h/2 + lidar_h/2}"/>
+    </joint>
+
 </robot>
