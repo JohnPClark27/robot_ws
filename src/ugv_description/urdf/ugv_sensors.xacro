@@ -35,7 +35,7 @@
       <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     </gazebo>
 
-    <!-- 360 Lidar -->
+<!-- 360 Lidar -->
     <xacro:property name="lidar_r" value="0.028"/>
     <xacro:property name="lidar_h" value="0.04"/>
 
@@ -52,5 +52,37 @@
         <child link = "lidar_link"/>
         <origin xyz="0 0 ${body_h/2 + lidar_h/2}"/>
     </joint>
+
+    <gazebo reference="lidar_link">
+        <sensor name="lidar" type="gpu_lidar">
+            <always_on>1</always_on>
+            <update_rate>10</update_rate>
+            <topic>scan</topic>
+            <gz_frame_id>lidar_link</gz_frame_id>
+            <visualize>true</visualize>
+            <lidar>
+            <scan>
+                <horizontal>
+                <samples>500</samples>
+                <resolution>1</resolution>
+                <min_angle>${-pi}</min_angle>
+                <max_angle>${pi}</max_angle>
+                </horizontal>
+            </scan>
+            <range>
+                <min>0.05</min>
+                <max>12</max>
+                <resolution>0.01</resolution>
+            </range>
+            <noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise>
+            </lidar>
+        </sensor>
+        </gazebo>
+
+        <gazebo>
+        <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+    </gazebo>
 
 </robot>
