@@ -1,14 +1,14 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 **Step 10: drivetrain done.** My own robot (`ugv_description` package) spawns in Gazebo, drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
-IMU is on the ugv too (`imu_link`, `/imu`, with noise).
-Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the body), then camera → GPS. See [roadmap.md](roadmap.md).
+Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`).
+**Weekend goal (2026-11-07/08): every sensor the real robot might have.** Next: **own world file** (`worlds/test_world.sdf`, obstacles, `<spherical_coordinates>`) → GPS → curb sensors → magnetometer → bump sensors. See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -63,6 +63,23 @@ Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the b
   - Noise: `<imu><angular_velocity>` / `<linear_acceleration>` with `<x|y|z><noise type="gaussian">`, stddev 0.009 rad/s (gyro), 0.017 m/s² (accel). Placeholder cheap-MEMS values; replace with datasheet values
   - Result at rest: `frame_id: imu_link`, accel z ≈ 9.8 ± 0.02. Gazebo fills covariance = stddev² on the diagonal (0.000081 gyro, 0.000289 accel). **`orientation_covariance` stays all 0** (no orientation noise) → handle in `robot_localization` config (Step 12)
 
+- [x] Sensors session (2026-11-07): lidar + cameras
+  - Split sensors into `urdf/ugv_sensors.xacro`, pulled in with `<xacro:include filename="$(find ugv_description)/urdf/ugv_sensors.xacro"/>` just above `</robot>`. Included file needs its own `<robot xmlns:xacro=...>` root (no `name`). Properties from the main file still work (include = paste). **New file → `colcon build`** (symlink is only made for files that exist at build time)
+  - **360° lidar:** `lidar_link` cylinder (r 0.028, h 0.04), fixed joint z = `body_h/2 + lidar_h/2` = 0.12 (checked with `ros2 run tf2_ros tf2_echo base_link lidar_link`)
+    - `gpu_lidar` sensor: 500 samples (5000 samples/s ÷ 10 Hz, RPLIDAR C1), `${-pi}`..`${pi}`, range 0.05–12 m (min must clear the lidar's own radius), gaussian noise 0.01, `gz_frame_id lidar_link`, topic `scan`
+    - Needs `gz-sim-sensors-system` (`render_engine ogre2`), shared by all rendering sensors (lidar, cameras, depth). Currently in a model-level `<gazebo>` block; move to the world file
+    - Bridge `/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan`. RViz LaserScan display: red dots outline shapes
+  - **Cameras:** `cam` xacro macro (params `name x y z yaw`), called for `front_cam` (x = `body_l/2 + 0.012/2`, yaw 0) and `rear_cam` (x mirrored, yaw `${pi}`), z = `body_h/2 - 0.024/2`
+    - Two links per camera: `<name>_link` (x forward; Gazebo aims the camera along its +x, so `<gazebo reference>` points here) and `<name>_optical_link` (`rpy="${-pi/2} 0 ${-pi/2}"`, xyz 0: z forward, y down, [REP 103](https://www.ros.org/reps/rep-0103.html)). Image header uses the optical frame: `<gz_frame_id>${name}_optical_link</gz_frame_id>`
+    - Pi Camera Module 3 Wide: `horizontal_fov` 1.780236 (102°), 640×360 (16:9), 15 Hz, clip 0.05–50 m, noise 0.007
+    - Topics `<name>/image_raw`, CameraInfo auto-published next to it as `<name>/camera_info`. Bridge `sensor_msgs/msg/Image[gz.msgs.Image` and `sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo`
+    - RViz: Add → By topic → Image display shows the camera view
+  - Learned: a joint `<origin>` is relative to its **parent** link (optical joint = 0 offset from the camera link)
+  - Learned: xacro macro params are like function args: placeholders `${x}` inside, real numbers at the call
+  - Learned: the 4×4 TF matrix = 3×3 rotation + translation column; points are `[x, y, z, 1]`
+  - Learned: RViz pose vs Gazebo pose drifts apart while driving = wheel-odometry drift (skid-steer slip, worst when turning). Expected; `robot_localization` fixes it in Step 12
+  - Performance: RTF ≈ 0.81 with lidar + 2 cameras (RViz Time panel: ROS Elapsed ÷ Wall Elapsed), cameras ≈ 11 Hz by wall clock instead of 15
+
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
@@ -71,6 +88,9 @@ Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the b
 | `base_link` | DiffDrive (`odom` → `base_link`) | Robot body center |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
 | `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU, 0.1 m above `base_link` (top of body) |
+| `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center, 0.12 m above `base_link` |
+| `front_cam_link`, `rear_cam_link` | `robot_state_publisher` (`/tf_static`) | Camera bodies at the front/rear face, x forward |
+| `front_cam_optical_link`, `rear_cam_optical_link` | `robot_state_publisher` (`/tf_static`) | Same point, z forward / y down. Image `frame_id` |
 | `map` | Not yet | Comes later from localization / Nav2 |
 
 ## Frames (old, from `diff_drive.sdf`)
@@ -103,7 +123,7 @@ Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the b
 4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Continue with sensors: 360° lidar on the ugv.
+7. Continue with the own world file (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -117,9 +137,13 @@ Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the b
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
 3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~, ~~DiffDrive~~, ~~JointStatePublisher~~, ~~bridge~~, ~~teleop + RViz~~, ~~save RViz config~~. Remaining:
-   - Sensors: ~~IMU~~ → **360° lidar (next)** → camera → GPS. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block with `gz_frame_id`, the system plugin, and a bridge entry
-     - Lidar plan: `lidar_link` with a small cylinder visual (RPLIDAR C1 ≈ 0.028 m radius, 0.04 m tall). Bottom of the cylinder on top of the body: z = `body_h/2 + lidar_h/2` (add a `lidar_h` property). Scan plane must clear the body or the rays hit the robot
-     - Lidar needs the **Sensors** system (`gz-sim-sensors-system`, rendering), not the Imu system. Then `sensor_msgs/msg/LaserScan` bridge + LaserScan display in RViz
+   - Sensors: ~~IMU~~ → ~~360° lidar~~ → ~~cameras~~ → **world file (next)** → GPS → curb sensors → magnetometer → bump sensors. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block with `gz_frame_id`, the system plugin, and a bridge entry
+     - **World file (next, ~1 h):** copy `/opt/ros/jazzy/opt/gz_sim_vendor/share/gz/gz-sim8/worlds/empty.sdf` to `src/ugv_description/worlds/test_world.sdf`, add `worlds` to `install(DIRECTORY ...)` (rebuild), point `gz_args` in `sim.launch.py` at it, add 2–3 static box obstacles, move the Sensors system plugin here. Open question: is Sensors already in `empty.sdf`'s plugin list?
+     - **GPS (~1.5–2 h):** `navsat` sensor + NavSat system, `<spherical_coordinates>` = campus lat/lon in the world
+     - **Curb sensors (~2–3 h):** sim both options (depth camera → PointCloud2, tilted 2D lidar) to answer the roadmap question
+     - **Magnetometer (~0.5–1 h):** absolute heading, helps with skid-steer drift
+     - **Bump sensors (~3–4 h, stretch):** contact sensor needs the exact (renamed) collision name; likely a tiny node converting contacts → `std_msgs/Bool`. Decide count/placement first
+     - RViz Image displays for the cameras: check they were saved in `rviz/ugv.rviz` (File → Save Config); the committed config has none yet
    - Optional: start RViz from `sim.launch.py` with the saved config
    - Then obstacles in the world, record the demo
    - Try writing the sensor blocks myself from the [Gazebo sensors docs](https://gazebosim.org/docs/harmonic/sensors), using Step 9 as a template
@@ -166,4 +190,8 @@ Next: **360° lidar** (`lidar_link` with a small cylinder visual on top of the b
 - No `<material>` = default color (red in RViz).
 - New files under `urdf/` or `launch/` need a rebuild; edits to existing files don't (`--symlink-install`).
 - `joint_state_publisher_gui` (slider GUI) is not in the image; plain `joint_state_publisher` is.
+- Bridge entries must match the **Gazebo** topic name exactly (check `gz topic -l | grep <name>` first). The bridge doesn't rename: `/front_image@...` waits on a gz topic that doesn't exist
+- `gz_frame_id` must be a real TF frame name (e.g. `${name}_optical_link`), not `0`
+- `RTPS_TRANSPORT_SHM Error ... open_and_lock_file failed` = FastDDS shared memory unavailable in Docker, falls back to UDP. Harmless
+- `ros2 topic hz` average gets dragged down by one long startup gap (`max: 10s`). Use `--window 50` for the steady rate
 - `msrdc.exe` on Windows is WSLg's Remote Desktop client that draws Linux GUI windows. Normal; don't kill it.

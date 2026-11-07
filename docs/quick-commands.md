@@ -63,6 +63,14 @@ ros2 topic echo /tf_static --once               # base_link -> imu_link (fixed j
 ros2 topic echo /imu --field linear_acceleration   # z ≈ 9.8 ± noise
 ros2 topic echo /imu --once --field linear_acceleration_covariance
 xacro src/ugv_description/urdf/ugv.urdf.xacro | grep -A14 "<gazebo>"   # expanded ${ } values
+xacro src/ugv_description/urdf/ugv.urdf.xacro > /dev/null   # parse check: no output = OK
+ros2 run tf2_ros tf2_echo base_link lidar_link  # fixed-joint offset (z 0.12)
+ros2 topic hz /scan --window 50                 # ~10 Hz (lower if RTF < 1)
+ros2 topic echo /scan --once --field ranges | head -5
+ros2 topic hz /front_cam/image_raw --window 50  # ~15 Hz requested, ~11 at RTF 0.8
+ros2 topic echo /front_cam/image_raw --once --field header   # frame_id: front_cam_optical_link
+ros2 topic info /front_cam/image_raw --verbose  # subscribers + QoS (RViz "No Image" debugging)
+gz topic -l | grep -E "scan|cam"                # gz-side sensor topics
 ```
 
 ## Old: `vehicle_blue` (diff_drive.sdf) + TF in RViz: 4 terminals
