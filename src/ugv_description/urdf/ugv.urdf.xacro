@@ -72,13 +72,7 @@
     <xacro:track_wheel name="right_wheel_front" x="${wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
     <xacro:track_wheel name="right_wheel_rear" x="${-wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
 
-    <link name="imu_link"/>
-
-    <joint name = "imu_joint" type = "fixed">
-      <parent link = "base_link"/>
-      <child link = "imu_link"/>
-      <origin xyz="0 0 ${body_h/2}"/>
-    </joint>
+    
     
 
     <gazebo>
@@ -105,28 +99,5 @@
       </plugin>
     </gazebo>
 
-    <gazebo reference = "imu_link">
-      <sensor name = "imu" type = "imu">
-        <always_on>1</always_on>
-        <update_rate>50</update_rate>
-        <topic>imu</topic>
-        <gz_frame_id>imu_link</gz_frame_id>
-        <imu>
-          <angular_velocity>
-            <x><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></z>
-          </angular_velocity>
-          <linear_acceleration>
-            <x><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></z>
-          </linear_acceleration>
-        </imu>
-      </sensor>
-    </gazebo>
-
-    <gazebo>
-      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
-    </gazebo>
+    <xacro:include filename="$(find ugv_description)/urdf/ugv_sensors.xacro"/>
 </robot>
