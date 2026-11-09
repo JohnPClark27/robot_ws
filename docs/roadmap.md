@@ -15,7 +15,7 @@ Current progress: [session-resume.md](session-resume.md).
 |---|---|---|
 | Main computer | Raspberry Pi 5, 8 GB | Have it |
 | Obstacle sensing | **1 × 360° 2D lidar** on top (e.g. RPLIDAR C1, LDRobot LD19) | Decided |
-| Curb detection | Depth camera (e.g. OAK-D Lite) **or** 2nd 2D lidar tilted down | Open: compare both in sim |
+| Curb detection | **2nd 2D lidar, tilted down** (~13°, ground line ~1 m ahead) | Decided 2026-11-09 after sim comparison (cost) |
 | Cameras | 2 × Pi Camera Module 3 (wide) on the Pi's 2 CSI ports | Planned |
 | Vision acceleration | Raspberry Pi AI HAT+ (Hailo), for camera detection only | Planned |
 | Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
@@ -26,6 +26,11 @@ Current progress: [session-resume.md](session-resume.md).
 
 - **One 360° lidar** instead of several front/rear lidars: full coverage with one device, less Pi CPU and USB load, lower cost.
 - **A 2D lidar can't see curbs**: it scans one horizontal plane. Curbs need a sensor that looks down at the ground ahead.
+  - Confirmed in sim: a 0.20 m curb is invisible to the top lidar (scan plane ~0.27 m above ground).
+- **Tilted 2nd lidar for curbs (not a depth camera)**: chosen for cost (~$70–100 vs ~$300+ for a depth camera) and light Pi CPU load. Both were simulated (2026-11-09) and both detect the curb.
+  - Trade-off: the tilted lidar sees the curb only where its scan line crosses it (~1 m ahead). Once the robot is closer, the curb edge is out of the scan, so Nav2's costmap has to remember it (obstacle marking with persistence).
+  - Shallow 13° mount is sensitive to pitch: 1° of tilt (bumps, mounting error) moves the line ~0.1 m. Mount rigidly.
+  - Depth camera stays in the sim as a fallback / comparison option.
 - **RTK GPS**: standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data (free NTRIP services exist in many US states).
   - If RTK doesn't fit the budget, fallback: standard GPS + heavier reliance on lidar and odometry. Expect worse lane-keeping on narrow sidewalks.
 - **Tracked skid-steer**: good traction and contact area for curbs. Tracks skid even more than wheels when turning, so track/encoder odometry drifts badly in turns; the IMU (and GPS) correct heading.
@@ -70,7 +75,7 @@ Rough prices. Check current listings before buying.
 | Item | Approx. |
 |---|---|
 | 360° 2D lidar | $70–100 |
-| Curb sensor (depth camera / 2nd lidar) | $70–150 |
+| Curb sensor (2nd 2D lidar, tilted) | $70–100 |
 | 2 × Pi Camera Module 3 | $50–70 |
 | AI HAT+ | $70–130 |
 | RTK GPS + antenna | $200–300 |
@@ -113,7 +118,7 @@ Rough prices. Check current listings before buying.
 ## Open questions
 
 - [ ] Does RTK GPS fit the budget? Is there a free NTRIP service near campus?
-- [ ] Curb sensor: depth camera or tilted lidar? Decide after the sim comparison.
+- [x] Curb sensor: depth camera or tilted lidar? **Tilted 2D lidar** (cost), decided 2026-11-09 after the sim comparison.
 - [ ] Drivetrain: motors, controller, chassis that can climb curbs within budget.
 - [ ] Is `nav2_route` packaged for Jazzy?
 

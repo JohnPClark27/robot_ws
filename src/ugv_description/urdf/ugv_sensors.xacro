@@ -166,7 +166,7 @@
     <joint name="depth_cam_joint" type="fixed">
       <parent link="base_link"/>
       <child link="depth_cam_link"/>
-      <origin xyz = "${body_l/2} 0 ${body_h/2 - 0.024}" rpy = "0 0.5235988 0"/>
+      <origin xyz = "${body_l/2 + 0.012} 0 ${body_h/2 - 0.024}" rpy = "0 0.5235988 0"/>
     </joint>
 
     <gazebo reference="depth_cam_link">
@@ -187,6 +187,43 @@
             <far>5</far>
           </clip>
         </camera>
+      </sensor>
+    </gazebo>
+
+<!-- Tilted curb lidar -->
+    <link name="curb_lidar_link">
+      <visual><geometry><cylinder radius="0.02" length="0.03"/></geometry></visual>
+    </link>
+
+    <joint name="curb_lidar_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="curb_lidar_link"/>
+      <origin xyz = "${body_l/2 + 0.012} 0 ${body_h/2 - 0.018}" rpy = "0 ${radians(13)} 0"/>
+    </joint>
+
+    <gazebo reference="curb_lidar_link">
+      <sensor name="curb_lidar" type="gpu_lidar">
+        <always_on>1</always_on>
+        <update_rate>10</update_rate>
+        <topic>scan_curb</topic>
+        <gz_frame_id>curb_lidar_link</gz_frame_id>
+        <visualize>true</visualize>
+        <lidar>
+        <scan>
+            <horizontal>
+            <samples>500</samples>
+            <resolution>1</resolution>
+            <min_angle>${-pi/3}</min_angle>
+            <max_angle>${pi/3}</max_angle>
+            </horizontal>
+        </scan>
+        <range>
+            <min>0.05</min>
+            <max>12</max>
+            <resolution>0.01</resolution>
+        </range>
+        <noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise>
+        </lidar>
       </sensor>
     </gazebo>
 
