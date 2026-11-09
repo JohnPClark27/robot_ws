@@ -99,7 +99,7 @@ Rough prices. Check current listings before buying.
 | 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
 | 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Sim sensors complete (2026-11-09): drives with teleop, RViz config saved, IMU with noise (2026-10-24); 360° lidar + front/rear cameras (2026-11-07); own world `test_world.sdf` with obstacles, curb lidar + depth cam, magnetometer (2026-11-09). Bump sensors moved to Phase 2 (firmware) |
 | 11 | Add GPS (`navsat` sensor) | Done (2026-11-09): `/gps/fix`, campus origin in `<spherical_coordinates>`, RTK-level noise |
-| 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Next. Sim quirk: gz `/mag` looks like gauss + NED (needs conversion) |
+| 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Next (planned 2026-11-09): chunk A local EKF (odom + IMU) → B navsat_transform + global EKF (`map` frame) → C tuning, ~4–6 h. First: check `/odom` covariances, stop bridging DiffDrive's TF. Sim quirk: gz `/mag` looks like gauss + NED (needs conversion) |
 | 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | |
 | 14 | Swap in real dimensions and CAD meshes from Fusion 360; re-place 360° lidar, cameras, tilted curb lidar to match the real mounts | |
 | 15 | Build the campus world (OSM + elevation → mesh → Gazebo) | |

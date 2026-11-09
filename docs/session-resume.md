@@ -1,14 +1,14 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
 
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
-**Step 10: drivetrain done.** My own robot (`ugv_description` package) spawns in Gazebo, drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
-Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`).
-**Weekend goal (2026-11-07/08): every sensor the real robot might have.** Next: **own world file** (`worlds/test_world.sdf`, obstacles, `<spherical_coordinates>`) → GPS → curb sensors → magnetometer → bump sensors. See [Planned next steps](#planned-next-steps).
+**Steps 10 + 11 done: sim sensors complete.** My own robot (`ugv_description` package) spawns in my own world (`worlds/test_world.sdf`, campus GPS origin, obstacles + a curb), drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
+Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer (`/mag`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`), GPS (`/gps/fix`), tilted curb lidar (`/scan_curb`), depth camera (`/depth_cam/points`, comparison only). Bump sensors moved to Phase 2 (firmware).
+**Next: Step 12, `robot_localization`**, starting with chunk A (local EKF: wheel odom + IMU). See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -80,6 +80,27 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar 
   - Learned: RViz pose vs Gazebo pose drifts apart while driving = wheel-odometry drift (skid-steer slip, worst when turning). Expected; `robot_localization` fixes it in Step 12
   - Performance: RTF ≈ 0.81 with lidar + 2 cameras (RViz Time panel: ROS Elapsed ÷ Wall Elapsed), cameras ≈ 11 Hz by wall clock instead of 15
 
+- [x] Sensors session 2 (2026-11-09): world file, GPS, curb sensors, magnetometer
+  - **World file:** copied `empty.sdf` → `src/ugv_description/worlds/test_world.sdf`, added `worlds` to `install(DIRECTORY ...)` + rebuild, `sim.launch.py` builds `world_file` with `get_package_share_directory` and passes `'-r ' + world_file` to `gz_args`
+    - `empty.sdf` loads 4 systems: Physics, UserCommands (needed by `ros_gz_sim create`), SceneBroadcaster, Contact. **No Sensors**
+    - If a world lists any plugins, Gazebo loads only those (no defaults), so keep all 4 when adding more
+    - Moved world-wide systems out of the robot into the world: Sensors (`render_engine ogre2`), Imu, later NavSat + Magnetometer. Rule: robot things in the URDF, things the world provides to everyone in the world file
+    - Obstacles: static `box_1` (0.5 m cube at x 2), `cylinder_1` (r 0.25 at 3, 1), `curb` (0.5 × 10 × 0.2 m at x −3). Static models need collision + visual, no inertial; pose z = half the height
+  - **Curb test:** the 360° lidar can't see the 0.20 m curb (scan plane ~0.27 m above ground). Confirms the need for a curb sensor
+  - **GPS (Step 11):** `<spherical_coordinates>` in the world (EARTH_WGS84, ENU, lat 40.515531, lon −85.655477, elevation 260 m, heading 0) + `gz-sim-navsat-system`
+    - `gps_link` on top, 0.15 m behind `base_link`; `navsat` sensor, 10 Hz, topic `gps/fix` (the name `navsat_transform` expects), bridge `/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat`
+    - Noise via xacro props `gps_h_std` / `gps_v_std`: 0.02 / 0.04 m (RTK fixed, ZED-F9P class). Standard GPS = 2.0 / 4.0 m
+    - 0.00001° latitude ≈ 1.1 m, but 0.00001° longitude ≈ 0.85 m here (× cos 40.5°)
+    - RTK in reality drops to float (~0.3 m) / standard (~2 m) near buildings and trees. Gaussian noise doesn't model that, so tune fusion to survive standard GPS
+    - No RViz display for NavSatFix: use rqt Topic Monitor now, `/odometry/gps` from `navsat_transform` in Step 12, Foxglove Map panel for the demo (later)
+  - **Curb sensors (both simulated, tilted lidar chosen for cost, see roadmap):**
+    - Depth camera (D435-like): `depth_cam_link` on the front face below the lidar plane, pitched 30° down (positive pitch = down), `depth_camera` sensor 320×240, HFOV 87°, clip 0.28–5 m, 10 Hz, `gz_frame_id depth_cam_link`. One `<topic>` gives 2 gz topics: `/depth_cam` (Image, 32FC1 meters) + `/depth_cam/points` (`gz.msgs.PointCloudPacked` → `sensor_msgs/msg/PointCloud2`). Sees the curb's full shape
+    - Tilted curb lidar: `curb_lidar_link` on the front face, ~0.23 m above ground, pitch `${radians(13)}` so the ground line lands ~1 m ahead (θ = atan(h / d)), FOV ±60°, topic `scan_curb`. Curb shows as a step in the line, but only while the line crosses it
+  - **Magnetometer:** second `<gazebo reference="imu_link">` block (9-DoF IMUs have it on the same chip), `magnetometer` sensor 50 Hz, topic `mag`, + `gz-sim-magnetometer-system` in the world. Bridge `/mag@sensor_msgs/msg/MagneticField[gz.msgs.Magnetometer`
+    - Rotation test passed: turning 90° keeps z and the horizontal magnitude, rotates x/y by ~90°
+    - **Sim quirk:** values look like **gauss** (|B| ≈ 0.52 = Indiana's ~52 µT) not tesla, and world axes look **NED** (x north, z down, z = +0.48). Heading from `/mag` would be 90° off vs ENU. Handle in Step 12 (conversion node, or use `/imu` orientation in sim)
+  - Bump sensors: **not simulated**. Last-resort safety belongs in ESP32 firmware (cut motors directly); Nav2 Collision Monitor handles prevention in sim. See roadmap Phase 2
+
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
@@ -87,11 +108,14 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar 
 | `odom` | DiffDrive → bridge → `/tf` | Fixed start point of odometry. RViz Fixed Frame |
 | `base_link` | DiffDrive (`odom` → `base_link`) | Robot body center |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
-| `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU, 0.1 m above `base_link` (top of body) |
+| `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.1 m above `base_link` (top of body) |
 | `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center, 0.12 m above `base_link` |
 | `front_cam_link`, `rear_cam_link` | `robot_state_publisher` (`/tf_static`) | Camera bodies at the front/rear face, x forward |
 | `front_cam_optical_link`, `rear_cam_optical_link` | `robot_state_publisher` (`/tf_static`) | Same point, z forward / y down. Image `frame_id` |
-| `map` | Not yet | Comes later from localization / Nav2 |
+| `gps_link` | `robot_state_publisher` (`/tf_static`) | GPS antenna, top of body, 0.15 m behind `base_link` |
+| `depth_cam_link` | `robot_state_publisher` (`/tf_static`) | Depth camera, front face, pitched 30° down. Point cloud `frame_id` |
+| `curb_lidar_link` | `robot_state_publisher` (`/tf_static`) | Tilted curb lidar, front face, pitched 13° down |
+| `map` | Not yet | Comes from the global EKF (Step 12, chunk B) |
 
 ## Frames (old, from `diff_drive.sdf`)
 
@@ -120,10 +144,10 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar 
 1. Install Docker (see README), clone the repo, `docker compose build`.
 2. Terminal 1 (host `jpcli@`, repo root): `docker compose run --rm ros`. This is the main shell; don't `exit` it until done.
 3. Terminal 1 (container `ubuntu@`, `/ws`): `colcon build --symlink-install && source install/setup.bash` (needed in every new container).
-4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
+4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo with `test_world.sdf` + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Continue with the own world file (see Planned next steps).
+7. Continue with Step 12, `robot_localization` (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -136,19 +160,18 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar 
 
 1. ~~Finish TF in RViz (Step 8).~~ Done.
 2. ~~Step 9: IMU.~~ Done.
-3. Step 10: ~~package~~, ~~URDF/xacro body + 6 wheels~~, ~~spawn in Gazebo~~, ~~DiffDrive~~, ~~JointStatePublisher~~, ~~bridge~~, ~~teleop + RViz~~, ~~save RViz config~~. Remaining:
-   - Sensors: ~~IMU~~ → ~~360° lidar~~ → ~~cameras~~ → **world file (next)** → GPS → curb sensors → magnetometer → bump sensors. Each = a sensor link + fixed joint in the xacro, a `<gazebo reference=...>` sensor block with `gz_frame_id`, the system plugin, and a bridge entry
-     - **World file (next, ~1 h):** copy `/opt/ros/jazzy/opt/gz_sim_vendor/share/gz/gz-sim8/worlds/empty.sdf` to `src/ugv_description/worlds/test_world.sdf`, add `worlds` to `install(DIRECTORY ...)` (rebuild), point `gz_args` in `sim.launch.py` at it, add 2–3 static box obstacles, move the Sensors system plugin here. Open question: is Sensors already in `empty.sdf`'s plugin list?
-     - **GPS (~1.5–2 h):** `navsat` sensor + NavSat system, `<spherical_coordinates>` = campus lat/lon in the world
-     - **Curb sensors (~2–3 h):** sim both options (depth camera → PointCloud2, tilted 2D lidar) to answer the roadmap question
-     - **Magnetometer (~0.5–1 h):** absolute heading, helps with skid-steer drift
-     - **Bump sensors (~3–4 h, stretch):** contact sensor needs the exact (renamed) collision name; likely a tiny node converting contacts → `std_msgs/Bool`. Decide count/placement first
-     - RViz Image displays for the cameras: check they were saved in `rviz/ugv.rviz` (File → Save Config); the committed config has none yet
+3. ~~Step 10: robot package, drivetrain, sensors~~ Done (2026-11-09). ~~Step 11: GPS~~ Done. Leftovers:
    - Optional: start RViz from `sim.launch.py` with the saved config
-   - Then obstacles in the world, record the demo
-   - Try writing the sensor blocks myself from the [Gazebo sensors docs](https://gazebosim.org/docs/harmonic/sensors), using Step 9 as a template
-4. Set up `robot_localization` to fuse GPS + IMU + odometry.
-5. Bring up Nav2 against the simulated robot.
+   - Optional: give the obstacles different colors (all green now), record the demo
+   - `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html)) so the robot doesn't look half-sunk in RViz
+4. **Step 12 (next): `robot_localization`**, ~4–6 h over 2–3 sessions
+   - **Chunk A (~1–1.5 h, next session): local EKF** fusing `/odom` + `/imu`, publishes `odom → base_link`
+     - First check covariances: `ros2 topic echo /odom --once --field pose.covariance` (and `twist.covariance`). Zeros = "perfect", breaks the weighting. `/imu` `orientation_covariance` is already known to be 0
+     - TF conflict: DiffDrive already publishes `odom → base_link` via the bridged `/model/ugv/tf`. Two publishers of one transform fight, so stop bridging DiffDrive's TF once the EKF publishes it
+   - Chunk B (~2–3 h): `navsat_transform` (GPS lat/lon → meters) + global EKF, publishes `map → odom`. Handle the `/mag` gauss/NED quirk here
+   - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
+   - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
+5. Bring up Nav2 against the simulated robot (+ Collision Monitor).
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
 
 ## Gotchas so far
@@ -195,3 +218,12 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), 360° lidar 
 - `RTPS_TRANSPORT_SHM Error ... open_and_lock_file failed` = FastDDS shared memory unavailable in Docker, falls back to UDP. Harmless
 - `ros2 topic hz` average gets dragged down by one long startup gap (`max: 10s`). Use `--window 50` for the steady rate
 - `msrdc.exe` on Windows is WSLg's Remote Desktop client that draws Linux GUI windows. Normal; don't kill it.
+- Edit didn't take effect? Run `git status` first. If the file isn't listed as modified, it wasn't saved (happened twice with `test_world.sdf`)
+- Debug sensors Gazebo-side first: `gz topic -l | grep <name>`. Missing = world system or sensor problem. Present = bridge/ROS problem. A missing world system gives a silent ROS topic (the bridge still advertises it)
+- `gz_args` is one string: `'-r ' + world_file` needs the space, or Gazebo reads `-r/ws/...` as an invalid option. When a launch process dies, read the `cmd '...'` line to see exactly what ran
+- One topic name = one message type. A display subscribing to `/depth_cam` as PointCloud2 while it's an Image crashed RViz (`incompatible type ... invalid allocator`). `ros2 topic info <topic> --verbose` shows who uses which type
+- RViz "By topic" hides children of a name that is both a topic and a namespace (`/depth_cam` + `/depth_cam/points`). Keep the parent a pure namespace: remap `/depth_cam` → `/depth_cam/depth_image`. Fallback: By display type + type the topic
+- RViz depth Image black = auto-normalize hit +inf (sky). Uncheck Normalize Range, Min 0, Max 5
+- Sensor placement: the 360° lidar hit the depth camera box (both at ~0.12 m) = dots beside the camera + a blind wedge. Keep everything clear of the lidar plane
+- A pitched sensor's ±90° rays don't tilt (pitch rotates about y). Narrow the FOV so side rays don't hit the wheels
+- gz magnetometer: gauss (not tesla), world axes look NED. Heading 90° off vs ENU
