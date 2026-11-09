@@ -31,6 +31,30 @@
       </sensor>
     </gazebo>
 
+<!-- GPS -->
+    <link name = "gps_link"/>
+
+    <joint name = "gps_joint" type = "fixed">
+        <parent link = "base_link"/>
+        <child link = "gps_link"/>
+        <origin xyz = "-${body_l/4} 0 ${body_h/2}"/>
+    </joint>
+
+    <gazebo reference="gps_link">
+      <sensor name="gps" type="navsat">
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <topic>gps/fix</topic>
+        <gz_frame_id>gps_link</gz_frame_id>
+        <navsat>
+          <position_sensing>
+            <horizontal><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></horizontal>
+            <vertical><noise type="gaussian"><mean>0</mean><stddev>0.04</stddev></noise></vertical>
+          </position_sensing>
+        </navsat>
+      </sensor>
+    </gazebo>
+
 <!-- 360 Lidar -->
     <xacro:property name="lidar_r" value="0.028"/>
     <xacro:property name="lidar_h" value="0.04"/>

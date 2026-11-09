@@ -52,7 +52,8 @@ def generate_launch_description():
             '/front_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/front_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/rear_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/rear_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo'
+            '/rear_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
         ],
         remappings=[('/model/ugv/tf', '/tf')],
         output='screen',
