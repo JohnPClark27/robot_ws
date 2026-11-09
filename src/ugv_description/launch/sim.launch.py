@@ -54,8 +54,10 @@ def generate_launch_description():
             '/rear_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/rear_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
+            '/depth_cam@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/depth_cam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked'
         ],
-        remappings=[('/model/ugv/tf', '/tf')],
+        remappings=[('/model/ugv/tf', '/tf'), ('/depth_cam', '/depth_cam/depth_image')],
         output='screen',
     )
 
