@@ -57,6 +57,7 @@ def generate_launch_description():
             '/depth_cam@sensor_msgs/msg/Image[gz.msgs.Image',
             '/depth_cam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
             '/scan_curb@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/mag@sensor_msgs/msg/MagneticField[gz.msgs.Magnetometer',
         ],
         remappings=[('/model/ugv/tf', '/tf'), ('/depth_cam', '/depth_cam/depth_image')],
         output='screen',

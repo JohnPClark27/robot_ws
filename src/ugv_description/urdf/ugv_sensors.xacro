@@ -31,6 +31,20 @@
       </sensor>
     </gazebo>
 
+    <gazebo reference="imu_link">
+      <sensor name="magnetometer" type="magnetometer">
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <topic>mag</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
+        <magnetometer>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.0000001</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.0000001</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.0000001</stddev></noise></z>
+        </magnetometer>
+      </sensor>
+    </gazebo>
+
 <!-- GPS -->
     <xacro:property name="gps_h_std" value="0.02"/>   <!-- RTK fixed; 2.0 for standard GPS -->
     <xacro:property name="gps_v_std" value="0.04"/>   <!-- RTK fixed; 4.0 for standard GPS -->
