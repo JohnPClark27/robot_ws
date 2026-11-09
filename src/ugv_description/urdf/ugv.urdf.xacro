@@ -72,9 +72,6 @@
     <xacro:track_wheel name="right_wheel_front" x="${wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
     <xacro:track_wheel name="right_wheel_rear" x="${-wheel_x_spacing}" y="${-body_w/2 - wheel_w/2}"/>
 
-    
-    
-
     <gazebo>
       <plugin filename="gz-sim-diff-drive-system"
               name="gz::sim::systems::DiffDrive">

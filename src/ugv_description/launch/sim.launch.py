@@ -13,6 +13,9 @@ def generate_launch_description():
     xacro_file = os.path.join(
         get_package_share_directory('ugv_description'), 'urdf', 'ugv.urdf.xacro')
 
+    world_file = os.path.join(
+        get_package_share_directory('ugv_description'), 'worlds', 'test_world.sdf')
+
     robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
 
     rsp = Node(
@@ -24,7 +27,7 @@ def generate_launch_description():
     gz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': '-r empty.sdf'}.items(),
+        launch_arguments={'gz_args': '-r ' + world_file}.items(),
     )
 
     spawn = Node(
