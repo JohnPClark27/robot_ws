@@ -31,10 +31,6 @@
       </sensor>
     </gazebo>
 
-    <gazebo>
-      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
-    </gazebo>
-
 <!-- 360 Lidar -->
     <xacro:property name="lidar_r" value="0.028"/>
     <xacro:property name="lidar_h" value="0.04"/>
@@ -77,12 +73,6 @@
             <noise type="gaussian"><mean>0</mean><stddev>0.01</stddev></noise>
             </lidar>
         </sensor>
-        </gazebo>
-
-        <gazebo>
-        <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
-            <render_engine>ogre2</render_engine>
-        </plugin>
     </gazebo>
 
 <!-- Cameras -->
