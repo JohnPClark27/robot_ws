@@ -49,12 +49,14 @@ Raspberry Pi 5  (Nav2, robot_localization, perception)
  └── USB serial: ESP32 (micro-ROS)
        ├── motor controller → motors
        ├── wheel encoders   → odometry
-       ├── IMU (or on the Pi)
+       ├── IMU + magnetometer (9-DoF, or on the Pi)
+       ├── bump switches   → cut motors in firmware, publish /bumper
        └── e-stop + watchdog (stop motors if commands stop)
 ```
 
 - The ESP32 handles **realtime** jobs only. It is too slow to pass lidar or camera data through.
 - The watchdog matters: Gazebo's DiffDrive keeps the last command forever (see [gazebo-basics-log.md](gazebo-basics-log.md), Step 5).
+- **Bump switches are not simulated.** They're a last-resort safety stop, so they belong as low in the stack as possible: the ESP32 firmware cuts the motors directly instead of waiting on ROS → Nav2. In sim, prevention is handled by Nav2's Collision Monitor (lidar/point cloud) instead. Fake a bump for testing with `ros2 topic pub --once /bumper std_msgs/msg/Bool "{data: true}"`.
 
 ## Navigation design
 
@@ -95,11 +97,11 @@ Rough prices. Check current listings before buying.
 | 1–7 | Gazebo + ROS 2 basics: bridge, teleop, odometry | Done |
 | 8 | TF in RViz | Done |
 | 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
-| 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | In progress: drives with teleop, RViz config saved, IMU with noise (2026-10-24); 360° lidar + front/rear cameras (2026-11-07); next own world file → GPS → curb sensors → magnetometer → bump sensors |
-| 11 | Add GPS (`navsat` sensor) | |
-| 12 | `robot_localization`: fuse GPS + IMU + odometry | |
-| 13 | Nav2 on the simulated robot (GPS waypoints) | |
-| 14 | Swap in real dimensions and CAD meshes from Fusion 360; add 360° lidar, cameras, and curb sensor options; compare curb sensors | |
+| 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Sim sensors complete (2026-11-09): drives with teleop, RViz config saved, IMU with noise (2026-10-24); 360° lidar + front/rear cameras (2026-11-07); own world `test_world.sdf` with obstacles, curb lidar + depth cam, magnetometer (2026-11-09). Bump sensors moved to Phase 2 (firmware) |
+| 11 | Add GPS (`navsat` sensor) | Done (2026-11-09): `/gps/fix`, campus origin in `<spherical_coordinates>`, RTK-level noise |
+| 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Next. Sim quirk: gz `/mag` looks like gauss + NED (needs conversion) |
+| 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | |
+| 14 | Swap in real dimensions and CAD meshes from Fusion 360; re-place 360° lidar, cameras, tilted curb lidar to match the real mounts | |
 | 15 | Build the campus world (OSM + elevation → mesh → Gazebo) | |
 | 16 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | |
 
@@ -107,6 +109,7 @@ Rough prices. Check current listings before buying.
 
 - `ros2_control` hardware interface so sim and real use the same controllers and launch files.
 - ESP32 firmware (micro-ROS): motors, encoders, watchdog, e-stop.
+- Bump switches → ESP32 firmware motor cut-off (+ `/bumper` `std_msgs/Bool` for logging/recovery). Decide count and placement with the chassis design.
 - Custom PCBs (KiCad).
 - Hardware-in-the-loop testing: real ESP32 and motors, simulated world.
 - Multi-arch Docker image (amd64 for PCs, arm64 for the Pi).
