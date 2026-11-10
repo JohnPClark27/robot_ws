@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'odom_cov_relay = ugv_localization.odom_cov_relay:main',
+            'mag_relay = ugv_localization.mag_relay:main',
         ],
         
     },
