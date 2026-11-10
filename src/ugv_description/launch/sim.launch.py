@@ -46,7 +46,7 @@ def generate_launch_description():
             '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
             '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
-            '/model/ugv/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            #'/model/ugv/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/front_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
@@ -59,7 +59,7 @@ def generate_launch_description():
             '/scan_curb@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/mag@sensor_msgs/msg/MagneticField[gz.msgs.Magnetometer',
         ],
-        remappings=[('/model/ugv/tf', '/tf'), ('/depth_cam', '/depth_cam/depth_image')],
+        remappings=[('/depth_cam', '/depth_cam/depth_image')],
         output='screen',
     )
 

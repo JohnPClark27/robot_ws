@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -8,7 +8,8 @@ Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gaze
 Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 **Steps 10 + 11 done: sim sensors complete.** My own robot (`ugv_description` package) spawns in my own world (`worlds/test_world.sdf`, campus GPS origin, obstacles + a curb), drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
 Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer (`/mag`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`), GPS (`/gps/fix`), tilted curb lidar (`/scan_curb`), depth camera (`/depth_cam/points`, comparison only). Bump sensors moved to Phase 2 (firmware).
-**Next: Step 12, `robot_localization`**, starting with chunk A (local EKF: wheel odom + IMU). See [Planned next steps](#planned-next-steps).
+**Step 12 chunk A done (2026-11-10):** new `ugv_localization` package, local EKF fuses wheel odom + gyro and now owns `odom → base_link`. RViz robot matches Gazebo much better (not perfect: only rates fused, so drift still accumulates).
+**Next: Step 12 chunk B**, starting with the magnetometer (gauss/NED → tesla/ENU), then `navsat_transform` + global EKF. See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -101,12 +102,33 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
     - **Sim quirk:** values look like **gauss** (|B| ≈ 0.52 = Indiana's ~52 µT) not tesla, and world axes look **NED** (x north, z down, z = +0.48). Heading from `/mag` would be 90° off vs ENU. Handle in Step 12 (conversion node, or use `/imu` orientation in sim)
   - Bump sensors: **not simulated**. Last-resort safety belongs in ESP32 firmware (cut motors directly); Nav2 Collision Monitor handles prevention in sim. See roadmap Phase 2
 
+- [x] Step 12 chunk A (2026-11-10): local EKF (`robot_localization`)
+  - Checked covariances first: `/odom` pose + twist covariance **all 0** (DiffDrive has no setting for it). 0 = "perfect" → EKF would ignore every other sensor
+  - Covariance = 6×6 matrix (x, y, z, roll, pitch, yaw) flattened row by row into 36 values. Diagonal = **variance** of one value from **one** sensor, at index `i*6 + i` (0, 7, 14, 21, 28, 35). Off-diagonal = correlated errors within the same sensor (left 0). Each sensor sends its own matrix; sensors only meet inside the EKF
+  - Smaller variance = more trust. √variance = stddev in real units (wheel `vyaw` 0.03 → ±0.17 rad/s vs gyro 0.000081 → ±0.009 rad/s, so the gyro wins on turning)
+  - New package: `ros2 pkg create ugv_localization --build-type ament_python --license Apache-2.0 --dependencies rclpy nav_msgs`. Node code goes in the **inner** `ugv_localization/ugv_localization/` folder
+  - **`odom_cov_relay` node** (`ugv_localization/odom_cov_relay.py`): subscribes `/odom`, fills the diagonals, republishes `/wheel/odom`. Plays the role `diff_drive_controller` / ESP32 firmware will play on the real robot
+    - `TWIST_DIAG = [0.0025, 0.001, 1e3, 1e3, 1e3, 0.03]` (vx ±5 cm/s, vy ≈ 0, unused axes 1e3 = "ignore", vyaw loose because of slip), `POSE_DIAG = [0.01, 0.01, 1e3, 1e3, 1e3, 0.05]`
+    - Covariance must be exactly **36 floats** (`[0.0] * 36`, then fill the diagonal in a loop)
+    - Registered in `setup.py` `entry_points` → `console_scripts`: `'odom_cov_relay = ugv_localization.odom_cov_relay:main'`
+    - Runs silently (no log = normal). `KeyboardInterrupt` traceback on Ctrl+C is harmless; clean exit with `with rclpy.init():` + `except (KeyboardInterrupt, ExternalShutdownException)`
+  - **`config/ekf.yaml`**: top key `ekf_filter_node`, `use_sim_time`, `frequency 30`, `two_d_mode true`, `publish_tf true`, `world_frame odom`
+    - `*_config` = 15 booleans: [x y z, roll pitch yaw, vx vy vz, vroll vpitch vyaw, ax ay az]
+    - `odom0: /wheel/odom` fuses **vx, vy, vyaw** (velocities, not pose: wheel pose drifts without limit). vy is fused because "can't slide sideways" is real information
+    - `imu0: /imu` fuses **vyaw only**. Not yaw orientation (`orientation_covariance` = 0, no mag yet), not accel (noisy + gravity, try in chunk C)
+  - `setup.py` `data_files`: `(os.path.join('share', package_name, 'config'), glob('config/*.yaml'))` and the same for `launch` / `launch/*.launch.py` (needs `import os` + `from glob import glob`). Install into **your own** package's share folder only
+  - **`launch/localization.launch.py`**: relay (`use_sim_time`) + `robot_localization` `ekf_node` with `name='ekf_filter_node'`, `parameters=[ekf_config]`. Run separately from `sim.launch.py`, so localization can restart while Gazebo keeps running
+  - **TF conflict:** with the EKF running, `/tf` had 3 publishers: `ekf_filter_node` + `ros_gz_bridge` (both `odom → base_link`) + `robot_state_publisher` (wheels, no conflict). A conflict = two publishers of the **same parent → child pair**, not just two publishers on `/tf`
+    - In RViz: robot flickered between two poses; after spinning in place, the two copies drove off in different directions (DiffDrive heading includes slip, EKF heading follows the gyro)
+    - Fix: commented out `/model/ugv/tf` in the `sim.launch.py` bridge and removed its remapping. **`sim.launch.py` alone now has no `odom → base_link`** (RViz can't place the robot); always run `localization.launch.py` too
+  - `tf2_monitor` in ROS 2: always `<no authority available>` (TF messages don't carry the sender). Without `use_sim_time` the delay is ~1.79e9 s (wall clock vs sim stamps); with it, startup clock jump makes averages garbage (negative delays). Not useful here
+
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
 |---|---|---|
-| `odom` | DiffDrive → bridge → `/tf` | Fixed start point of odometry. RViz Fixed Frame |
-| `base_link` | DiffDrive (`odom` → `base_link`) | Robot body center |
+| `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. RViz Fixed Frame |
+| `base_link` | `ekf_filter_node` (`odom` → `base_link`). DiffDrive's TF is no longer bridged | Robot body center |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
 | `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.1 m above `base_link` (top of body) |
 | `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center, 0.12 m above `base_link` |
@@ -164,11 +186,11 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
    - Optional: start RViz from `sim.launch.py` with the saved config
    - Optional: give the obstacles different colors (all green now), record the demo
    - `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html)) so the robot doesn't look half-sunk in RViz
-4. **Step 12 (next): `robot_localization`**, ~4–6 h over 2–3 sessions
-   - **Chunk A (~1–1.5 h, next session): local EKF** fusing `/odom` + `/imu`, publishes `odom → base_link`
-     - First check covariances: `ros2 topic echo /odom --once --field pose.covariance` (and `twist.covariance`). Zeros = "perfect", breaks the weighting. `/imu` `orientation_covariance` is already known to be 0
-     - TF conflict: DiffDrive already publishes `odom → base_link` via the bridged `/model/ugv/tf`. Two publishers of one transform fight, so stop bridging DiffDrive's TF once the EKF publishes it
-   - Chunk B (~2–3 h): `navsat_transform` (GPS lat/lon → meters) + global EKF, publishes `map → odom`. Handle the `/mag` gauss/NED quirk here
+4. **Step 12: `robot_localization`**, ~4–6 h over 2–3 sessions
+   - ~~Chunk A: local EKF~~ Done (2026-11-10). Run: `ros2 launch ugv_localization localization.launch.py` after `sim.launch.py`
+   - **Chunk B (~2–3 h, next): absolute sensors.** Local EKF only fuses rates, so heading + position still drift
+     - First: magnetometer. Gazebo gives gauss in NED; ROS wants tesla in ENU ([REP 103](https://www.ros.org/reps/rep-0103.html)). Likely another small relay/conversion node
+     - Then `navsat_transform` (GPS lat/lon → meters, needs a north-referenced heading) + global EKF, publishes `map → odom`
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
 5. Bring up Nav2 against the simulated robot (+ Collision Monitor).
@@ -227,3 +249,8 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 - Sensor placement: the 360° lidar hit the depth camera box (both at ~0.12 m) = dots beside the camera + a blind wedge. Keep everything clear of the lidar plane
 - A pitched sensor's ±90° rays don't tilt (pitch rotates about y). Narrow the FOV so side rays don't hit the wheels
 - gz magnetometer: gauss (not tesla), world axes look NED. Heading 90° off vs ENU
+- Launch `name=` must match the YAML's top key (`ekf_filter_node`), or the node silently ignores the whole config
+- `parameters=[ekf_config]` (variable, no quotes) loads the YAML. `{'ekf_config': True}` just makes a useless parameter named "ekf_config". Quotes = literal text, no quotes = the variable's value
+- Stop stray `ros2 run` copies of a node before launching it again, or two publishers send duplicate messages
+- Bad `data_files` lines leave stray files in `install/`. Clean rebuild of one package (from `/ws`): `rm -rf build/<pkg> install/<pkg> && colcon build --symlink-install --packages-select <pkg>`
+- Robot flickering between two poses in RViz = two publishers of the same transform
