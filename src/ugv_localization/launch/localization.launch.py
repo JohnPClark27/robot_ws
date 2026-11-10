@@ -21,4 +21,23 @@ def generate_launch_description():
         parameters=[ekf_config], 
     )
 
-    return LaunchDescription([relay, ekf])
+    mag = Node(
+        package='ugv_localization',
+        executable='mag_relay',
+        parameters=[{'use_sim_time': True}],
+    )
+
+    madgwick = Node(
+        package='imu_filter_madgwick',
+        executable='imu_filter_madgwick_node',
+        parameters=[{
+            'use_sim_time': True,
+            'use_mag': True,
+            'world_frame': 'enu',
+            'publish_tf': False,          
+            'orientation_stddev': 0.05,  
+        }],
+        remappings=[('imu/data_raw', '/imu')],
+    )
+
+    return LaunchDescription([relay, ekf, mag, madgwick])

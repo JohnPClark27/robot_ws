@@ -16,9 +16,9 @@ ekf_filter_node:              # must match the node name in the launch file
                    false, false, true,
                    false, false, false]
 
-    imu0: /imu
+    imu0: /imu/data
     imu0_config: [false, false, false,    # x y z
-                  false, false, false,    # roll pitch yaw (orientation_covariance = 0, skip for now)
+                  false, false, true,    # yaw from Madgwick
                   false, false, false,    # vx vy vz
                   false, false, true,     # vroll vpitch vyaw  <- gyro turn rate
                   false, false, false]    # ax ay az (skip for now, try in Chunk C)
