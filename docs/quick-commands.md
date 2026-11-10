@@ -38,6 +38,12 @@ rviz2 -d $(ros2 pkg prefix ugv_description)/share/ugv_description/rviz/ugv.rviz 
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
+**Terminal 4: localization (required: publishes `odom → base_link`)** — odom_cov_relay + mag_relay + Madgwick + EKF
+```bash
+ros2 launch ugv_localization localization.launch.py
+```
+Changed `setup.py` / added a file / changed `ekf.yaml`? Rebuild first: `colcon build --symlink-install --packages-select ugv_localization && source install/setup.bash`
+
 RViz only (no Gazebo, fake joint angles):
 ```bash
 ros2 launch ugv_description display.launch.py
@@ -71,6 +77,27 @@ ros2 topic hz /front_cam/image_raw --window 50  # ~15 Hz requested, ~11 at RTF 0
 ros2 topic echo /front_cam/image_raw --once --field header   # frame_id: front_cam_optical_link
 ros2 topic info /front_cam/image_raw --verbose  # subscribers + QoS (RViz "No Image" debugging)
 gz topic -l | grep -E "scan|cam"                # gz-side sensor topics
+```
+
+### ugv: localization checks
+
+```bash
+ros2 node list                                  # ekf_filter_node, imu_filter_madgwick, mag_relay, odom_cov_relay
+ros2 daemon stop                                # node list empty while things run? stale daemon; then list again (twice)
+ros2 topic echo /odom --once --field twist.covariance        # Gazebo: all 0
+ros2 topic echo /wheel/odom --once --field twist.covariance  # relay: diagonal at 0, 7, 14, 21, 28, 35
+ros2 topic echo /odometry/filtered --once --field pose.pose.position   # EKF output
+ros2 run tf2_ros tf2_echo odom base_link        # robot pose, RPY in degrees (yaw ≈ -9.3 at spawn = declination)
+ros2 topic info /tf --verbose | grep -E "Node name|Publisher count"   # who publishes TF
+ros2 topic echo /mag --once --field magnetic_field       # gz raw: gauss, NED-ish
+ros2 topic echo /imu/mag --once --field magnetic_field   # mag_relay: tesla, ENU (spawn ≈ -3.2e-06, 1.98e-05, -4.82e-05)
+ros2 topic hz /imu/data --window 50                      # Madgwick output, ~50 Hz
+ros2 topic echo /imu/data --once --field orientation     # quaternion; yaw = 2*asin(z) when level
+ros2 topic echo /imu/data --once --field orientation_covariance   # 0.0025 diagonal
+ros2 topic list | grep imu                      # which IMU topics actually exist
+ros2 pkg prefix imu_filter_madgwick             # /opt/ros/jazzy = apt package, /ws/install = mine
+python3 -c "import math; print(math.degrees(2*math.asin(-0.0813)))"   # quaternion z -> yaw (deg)
+python3 -c "import math; print(math.degrees(math.atan2(-3.2, 19.8)))" # angle of an (x, y) arrow
 ```
 
 ## Old: `vehicle_blue` (diff_drive.sdf) + TF in RViz: 4 terminals

@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -9,7 +9,8 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 **Steps 10 + 11 done: sim sensors complete.** My own robot (`ugv_description` package) spawns in my own world (`worlds/test_world.sdf`, campus GPS origin, obstacles + a curb), drives with `teleop_twist_keyboard`, and shows up in RViz (saved config) on sim time.
 Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer (`/mag`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`), GPS (`/gps/fix`), tilted curb lidar (`/scan_curb`), depth camera (`/depth_cam/points`, comparison only). Bump sensors moved to Phase 2 (firmware).
 **Step 12 chunk A done (2026-11-10):** new `ugv_localization` package, local EKF fuses wheel odom + gyro and now owns `odom → base_link`. RViz robot matches Gazebo much better (not perfect: only rates fused, so drift still accumulates).
-**Next: Step 12 chunk B**, starting with the magnetometer (gauss/NED → tesla/ENU), then `navsat_transform` + global EKF. See [Planned next steps](#planned-next-steps).
+**Step 12 chunk B part 1 done (2026-11-10):** `mag_relay` converts Gazebo's mag (gauss, NED) to ROS (tesla, ENU), Madgwick fuses gyro + accel + mag into an absolute (magnetic) yaw, local EKF fuses it. Heading stays matched after spinning in place. `odom` x-axis now points ~9.2° off true east (magnetic declination, expected).
+**Next: Step 12 chunk B part 2**: `navsat_transform` (GPS → meters, test the `magnetic_declination_radians` sign) + global EKF (`map → odom`). See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -99,7 +100,7 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
     - Tilted curb lidar: `curb_lidar_link` on the front face, ~0.23 m above ground, pitch `${radians(13)}` so the ground line lands ~1 m ahead (θ = atan(h / d)), FOV ±60°, topic `scan_curb`. Curb shows as a step in the line, but only while the line crosses it
   - **Magnetometer:** second `<gazebo reference="imu_link">` block (9-DoF IMUs have it on the same chip), `magnetometer` sensor 50 Hz, topic `mag`, + `gz-sim-magnetometer-system` in the world. Bridge `/mag@sensor_msgs/msg/MagneticField[gz.msgs.Magnetometer`
     - Rotation test passed: turning 90° keeps z and the horizontal magnitude, rotates x/y by ~90°
-    - **Sim quirk:** values look like **gauss** (|B| ≈ 0.52 = Indiana's ~52 µT) not tesla, and world axes look **NED** (x north, z down, z = +0.48). Heading from `/mag` would be 90° off vs ENU. Handle in Step 12 (conversion node, or use `/imu` orientation in sim)
+    - **Sim quirk:** values look like **gauss** (|B| ≈ 0.52 = Indiana's ~52 µT) not tesla, and world axes look **NED** (x north, z down, z = +0.48). Solved in Step 12 chunk B with `mag_relay` (fixed 108.4° rotation, not a 90° swap; see below)
   - Bump sensors: **not simulated**. Last-resort safety belongs in ESP32 firmware (cut motors directly); Nav2 Collision Monitor handles prevention in sim. See roadmap Phase 2
 
 - [x] Step 12 chunk A (2026-11-10): local EKF (`robot_localization`)
@@ -122,15 +123,32 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
     - In RViz: robot flickered between two poses; after spinning in place, the two copies drove off in different directions (DiffDrive heading includes slip, EKF heading follows the gyro)
     - Fix: commented out `/model/ugv/tf` in the `sim.launch.py` bridge and removed its remapping. **`sim.launch.py` alone now has no `odom → base_link`** (RViz can't place the robot); always run `localization.launch.py` too
   - `tf2_monitor` in ROS 2: always `<no authority available>` (TF messages don't carry the sender). Without `use_sim_time` the delay is ~1.79e9 s (wall clock vs sim stamps); with it, startup clock jump makes averages garbage (negative delays). Not useful here
+- [x] Step 12 chunk B part 1 (2026-11-10): magnetometer → absolute heading
+  - Gyro measures a **rate**; integrating it adds up errors (drift) and it never knows where north is. Absolute heading needs the magnetometer (and later GPS)
+  - `robot_localization` can't take `MagneticField`. Pipeline: `/mag` → `mag_relay` → `/imu/mag` + `/imu` → **Madgwick** → `/imu/data` (orientation incl. yaw) → EKF
+  - **Measured the gz quirk at 2 known headings** (yaw from `ros2 run tf2_ros tf2_echo odom base_link`, RPY in degrees):
+    - Spawn (yaw 0, facing east): gz `(0.198, -0.032, 0.482)` gauss = (North, East, Down) in µT ×100. Correct ENU sensor: `(-3.2, 19.8, -48.2)` µT
+    - Facing south (yaw −88.7°): gz `(0.035, 0.198, 0.482)`. Correct: `(-19.8, -3.2, -48.2)` µT
+    - **The x↔y swap is a trap**: matches facing east, ~180° wrong facing south. A swap is a mirror (turning left looks like turning right). Never derive a frame conversion from one measurement
+    - Gazebo's horizontal arrow has the right size and rotation direction, just a **fixed angle** off. `atan2(y, x)` of gz vs correct arrow: 108.4° (east), 109.2° (south, turn wasn't exactly 90°). = 90° − 2 × (−9.18° gz declination)
+  - **`mag_relay` node** (`ugv_localization/mag_relay.py`, sim only; real IMU drivers already give tesla ENU): rotate (x, y) by `MAG_ROTATION = math.radians(108.4)` (keep `x_new`/`y_new` separate), `z = -z`, × `GAUSS_TO_TESLA = 1e-4`, publish `imu/mag`. Only exact while level (2D). Verified: spawn `(-3.23e-06, 1.98e-05, -4.82e-05)`, south `(-1.99e-05, -2.99e-06, -4.82e-05)` T
+  - Reading a magnetometer: the field arrow's "shadow" on each robot axis (same direction = +, opposite = −). Northern hemisphere: field dives ~67° into the ground → z negative in z-up
+  - **Madgwick** (`imu_filter_madgwick`): installed by adding `<exec_depend>imu_filter_madgwick</exec_depend>` to `package.xml` → Dockerfile Layer 4 (`rosdep install --from-paths src`) installs it on `docker compose build`. `ros2 pkg prefix` → `/opt/ros/jazzy` = apt package
+    - Params: `use_mag: True`, `world_frame: 'enu'`, `publish_tf: False` (else `imu_link` gets 2 parents), `orientation_stddev: 0.05` (→ `orientation_covariance` 0.0025, no more zeros)
+    - Remap `('imu/data_raw', '/imu')`: **(name inside the node's code, real topic)**. Reversed = silent failure. `imu/data_raw` then only exists inside Madgwick, not on the network
+    - At spawn: quaternion z = −0.081 → yaw = 2·asin(z) = **−9.3°** = magnetic declination. Compass/Madgwick point to **magnetic** north, not true north. Correct in `navsat_transform` (`magnetic_declination_radians`; test the sign, ENU yaw is CCW, compass headings are CW). Gazebo uses ~−9.2°, NOAA says ~−5° for the real campus
+  - `ekf.yaml`: `imu0: /imu/data`, fuse **yaw + vyaw**. `tf2_echo odom base_link` at spawn: yaw −9.294° → `odom` x-axis = magnetic east (fine for the local EKF; `map` handles true north)
+  - Drive test: heading matches Gazebo after spinning. Obstacles wiggle slightly in RViz when changing direction = pose error made visible (not GPS, it isn't fused yet). Suspects for chunk C: Madgwick `gain` lag, slip in wheel `vx`
+  - Ran `docker compose build` (rosdep) → new container → `colcon build` first
 
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
 |---|---|---|
-| `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. RViz Fixed Frame |
+| `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. RViz Fixed Frame. x-axis = magnetic east (~9.2° off true east) since the EKF fuses Madgwick yaw |
 | `base_link` | `ekf_filter_node` (`odom` → `base_link`). DiffDrive's TF is no longer bridged | Robot body center |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
-| `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.1 m above `base_link` (top of body) |
+| `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.1 m above `base_link` (top of body). Madgwick has `publish_tf: False` so it doesn't add a 2nd parent |
 | `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center, 0.12 m above `base_link` |
 | `front_cam_link`, `rear_cam_link` | `robot_state_publisher` (`/tf_static`) | Camera bodies at the front/rear face, x forward |
 | `front_cam_optical_link`, `rear_cam_optical_link` | `robot_state_publisher` (`/tf_static`) | Same point, z forward / y down. Image `frame_id` |
@@ -169,7 +187,8 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo with `test_world.sdf` + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Continue with Step 12, `robot_localization` (see Planned next steps).
+7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + EKF). **Required**: without it nothing publishes `odom → base_link`.
+8. Continue with Step 12 chunk B part 2 (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -188,9 +207,10 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
    - `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html)) so the robot doesn't look half-sunk in RViz
 4. **Step 12: `robot_localization`**, ~4–6 h over 2–3 sessions
    - ~~Chunk A: local EKF~~ Done (2026-11-10). Run: `ros2 launch ugv_localization localization.launch.py` after `sim.launch.py`
-   - **Chunk B (~2–3 h, next): absolute sensors.** Local EKF only fuses rates, so heading + position still drift
-     - First: magnetometer. Gazebo gives gauss in NED; ROS wants tesla in ENU ([REP 103](https://www.ros.org/reps/rep-0103.html)). Likely another small relay/conversion node
-     - Then `navsat_transform` (GPS lat/lon → meters, needs a north-referenced heading) + global EKF, publishes `map → odom`
+   - **Chunk B: absolute sensors**
+     - ~~Part 1: magnetometer + Madgwick, EKF fuses absolute yaw~~ Done (2026-11-10)
+     - **Part 2 (next):** `navsat_transform` (GPS lat/lon → meters on `/odometry/gps`, needs the IMU heading + `magnetic_declination_radians`; verify the sign by test, sim value ~−9.2° = −0.160 rad) + global EKF (`world_frame: map`, fuses `/odometry/gps` + same odom/IMU), publishes `map → odom`
+   - Chunk C: tuning. Known items: obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
 5. Bring up Nav2 against the simulated robot (+ Collision Monitor).
@@ -254,3 +274,9 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 - Stop stray `ros2 run` copies of a node before launching it again, or two publishers send duplicate messages
 - Bad `data_files` lines leave stray files in `install/`. Clean rebuild of one package (from `/ws`): `rm -rf build/<pkg> install/<pkg> && colcon build --symlink-install --packages-select <pkg>`
 - Robot flickering between two poses in RViz = two publishers of the same transform
+- Empty `ros2 node list` while things clearly run = stale ROS daemon. `ros2 daemon stop`, then list again (first run after restart can be partial; run twice). `--no-daemon` also works but may miss slow nodes
+- `with rclpy.init():` is Kilted/Rolling only. In Jazzy `rclpy.init()` returns None → `TypeError: 'NoneType' object does not support the context manager protocol`. Use `try/except/finally` + `rclpy.try_shutdown()`. Check the docs URL says **jazzy**
+- `cos`/`sin` need `math.` (NameError only shows when the line runs, i.e. on the first message)
+- A topic name in a YAML/launch file that isn't in `ros2 topic list` = silent failure. Check with `ros2 topic list | grep <name>`
+- Frame conversions: test at 2+ orientations. One matching reading proves nothing
+- Obstacles moving in RViz (Fixed Frame `odom`) = localization error made visible
