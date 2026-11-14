@@ -47,6 +47,7 @@
 
 <!-- GPS -->
     <xacro:property name="gps_h_std" value="0.02"/>   <!-- RTK fixed; 2.0 for standard GPS -->
+    <xacro:property name = "gps_h_std_deg" value = "${gps_h_std / 111320}"/>
     <xacro:property name="gps_v_std" value="0.04"/>   <!-- RTK fixed; 4.0 for standard GPS -->
 
     <link name = "gps_link"/>
@@ -65,7 +66,7 @@
         <gz_frame_id>gps_link</gz_frame_id>
         <navsat>
           <position_sensing>
-            <horizontal><noise type="gaussian"><mean>0</mean><stddev>${gps_h_std}</stddev></noise></horizontal>
+            <horizontal><noise type="gaussian"><mean>0</mean><stddev>${gps_h_std_deg}</stddev></noise></horizontal>
             <vertical><noise type="gaussian"><mean>0</mean><stddev>${gps_v_std}</stddev></noise></vertical>
           </position_sensing>
         </navsat>
