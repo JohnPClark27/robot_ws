@@ -47,7 +47,7 @@ def generate_launch_description():
         executable='navsat_transform_node',
         name='navsat_transform',
         parameters=[navsat_config],
-        remappings=[('imu','/imu/data'), ('gps/fix', '/gps/fix_cov')],
+        remappings=[('imu','/imu/data'), ('gps/fix', '/gps/fix_cov'),('odometry/filtered', '/odometry/global'),],
     )
 
     gps_relay = Node(
@@ -56,4 +56,13 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
     )
 
-    return LaunchDescription([relay, ekf, mag, madgwick, navsat, gps_relay])
+    
+    ekf_map = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node_map',          # matches the 2nd yaml block
+        parameters=[ekf_config],
+        remappings=[('odometry/filtered', '/odometry/global')],
+    )
+
+    return LaunchDescription([relay, ekf, mag, madgwick, navsat, gps_relay, ekf_map])

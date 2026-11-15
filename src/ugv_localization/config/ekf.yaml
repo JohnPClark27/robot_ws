@@ -22,3 +22,37 @@ ekf_filter_node:              # must match the node name in the launch file
                   false, false, false,    # vx vy vz
                   false, false, true,     # vroll vpitch vyaw  <- gyro turn rate
                   false, false, false]    # ax ay az (skip for now, try in Chunk C)
+
+ekf_filter_node_map:          # 2nd node name
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    two_d_mode: true
+    publish_tf: true          # publishes map -> odom
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map          # <- the key difference
+
+    odom0: /wheel/odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+
+    imu0: /imu/data
+    imu0_config: [false, false, false,    # x y z
+                  false, false, true,    # yaw from Madgwick
+                  false, false, false,    # vx vy vz
+                  false, false, true,     # vroll vpitch vyaw  <- gyro turn rate
+                  false, false, false]    # ax ay az (skip for now, try in Chunk C)
+
+
+    odom1: /odometry/gps
+    odom1_config: [true,true,false,
+                  false,false,false,
+                  false,false,false,
+                  false,false,false,
+                  false,false,false]     # TODO: 15 booleans. Which ones should GPS fuse?
