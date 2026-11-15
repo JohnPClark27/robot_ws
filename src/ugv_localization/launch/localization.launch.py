@@ -40,4 +40,13 @@ def generate_launch_description():
         remappings=[('imu/data_raw', '/imu')],
     )
 
-    return LaunchDescription([relay, ekf, mag, madgwick])
+    navsat_config = os.path.join(get_package_share_directory('ugv_localization'), 'config', 'navsat.yaml')
+
+    navsat = Node(
+        package='robot_localization',
+        executable='navsat_transform_node',
+        name='navsat_transform',
+        parameters=[navsat_config],
+    )
+
+    return LaunchDescription([relay, ekf, mag, madgwick, navsat])
