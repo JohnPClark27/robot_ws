@@ -98,7 +98,14 @@ ros2 topic list | grep imu                      # which IMU topics actually exis
 ros2 pkg prefix imu_filter_madgwick             # /opt/ros/jazzy = apt package, /ws/install = mine
 python3 -c "import math; print(math.degrees(2*math.asin(-0.0813)))"   # quaternion z -> yaw (deg)
 python3 -c "import math; print(math.degrees(math.atan2(-3.2, 19.8)))" # angle of an (x, y) arrow
+gz model -m ugv -p                              # ground truth pose from Gazebo (world frame, yaw in rad)
+ros2 topic echo /gps/fix --once --field latitude && ros2 topic echo /gps/fix --once --field longitude   # spawn ≈ 40.5155310, -85.6554788
+xacro src/ugv_description/urdf/ugv.urdf.xacro | grep -A4 "<horizontal>" | head -5   # GPS noise stddev in DEGREES (~1.8e-07)
+ros2 topic echo /odometry/gps --once --field pose.pose.position   # navsat_transform output, ≈ (0, 0) at start
+ros2 topic info /imu/data --verbose | grep -E "Node name|Publisher count"   # want 1: imu_filter_madgwick
+ros2 topic echo /imu/data --field orientation.z                   # start BEFORE relaunching localization to see first msgs
 ```
+navsat startup log: `Transform heading factor is now F` → captured raw IMU yaw = F − 0.1758 (declination + convergence). Should match the robot's magnetic yaw at that moment, not 0.
 
 ## Old: `vehicle_blue` (diff_drive.sdf) + TF in RViz: 4 terminals
 

@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -10,7 +10,8 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer (`/mag`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`), GPS (`/gps/fix`), tilted curb lidar (`/scan_curb`), depth camera (`/depth_cam/points`, comparison only). Bump sensors moved to Phase 2 (firmware).
 **Step 12 chunk A done (2026-11-10):** new `ugv_localization` package, local EKF fuses wheel odom + gyro and now owns `odom → base_link`. RViz robot matches Gazebo much better (not perfect: only rates fused, so drift still accumulates).
 **Step 12 chunk B part 1 done (2026-11-10):** `mag_relay` converts Gazebo's mag (gauss, NED) to ROS (tesla, ENU), Madgwick fuses gyro + accel + mag into an absolute (magnetic) yaw, local EKF fuses it. Heading stays matched after spinning in place. `odom` x-axis now points ~9.2° off true east (magnetic declination, expected).
-**Next: Step 12 chunk B part 2**: `navsat_transform` (GPS → meters, test the `magnetic_declination_radians` sign) + global EKF (`map → odom`). See [Planned next steps](#planned-next-steps).
+**Step 12 chunk B part 2 in progress (2026-11-14):** fixed GPS noise units (was ~2 km, now ~2 cm), `navsat_transform` runs and publishes `/odometry/gps`. First declination test failed (GPS track ~8° off the EKF track) because `navsat_transform` captured an IMU yaw of ~0 instead of ~−9.3°.
+**Next:** read the "heading factor" log line from the latest localization launch (raw yaw = factor − 0.1758), check `/imu/data` has 1 publisher, then redo the drive test. After that: GPS covariance relay, then the global EKF (`map → odom`). See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -140,6 +141,28 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
   - `ekf.yaml`: `imu0: /imu/data`, fuse **yaw + vyaw**. `tf2_echo odom base_link` at spawn: yaw −9.294° → `odom` x-axis = magnetic east (fine for the local EKF; `map` handles true north)
   - Drive test: heading matches Gazebo after spinning. Obstacles wiggle slightly in RViz when changing direction = pose error made visible (not GPS, it isn't fused yet). Suspects for chunk C: Madgwick `gain` lag, slip in wheel `vx`
   - Ran `docker compose build` (rosdep) → new container → `colcon build` first
+- [~] Step 12 chunk B part 2 (2026-11-14, in progress): GPS → `navsat_transform`
+  - **GPS noise bug:** robot ~0.7 m from origin (`gz model -m ugv -p` = ground truth), but `/gps/fix` said ~1.5 km away, and a 2nd fix jumped ~2 km. Random jumps = noise, not an offset
+    - gz-sensors NavSat applies `<horizontal>` noise to **lat/lon in degrees**, not meters. `0.02` = 0.02° ≈ 2.2 km. `<vertical>` (altitude) is in meters
+    - Fix in `ugv_sensors.xacro`: keep `gps_h_std` in meters, add `gps_h_std_deg = ${gps_h_std / 111320}` (= 1.797e-07) and use it in `<horizontal>`. Longitude noise ends up ~1.3× bigger (cos 40.5°), fine for sim
+    - Verified at spawn: lat 40.5155310 (origin), lon −85.6554788 = 0.15 m west of origin (`gps_link` is 0.15 m behind `base_link`, robot faces east). Fix-to-fix change ~1 cm
+    - Lesson: wheel odom isn't ground truth (it can't see sliding or being flung). Ask Gazebo: `gz model -m ugv -p`
+  - **`/gps/fix` covariance is all 0** (`position_covariance_type: 0` = unknown). `navsat_transform` copies it into `/odometry/gps` → an EKF would treat GPS as perfect. **To do before fusing:** GPS covariance relay (same pattern as `odom_cov_relay`, variance = 0.02² m²)
+  - Checking xacro: run it on the **main** file `ugv.urdf.xacro`. `ugv_sensors.xacro` alone fails (`name 'body_h' is not defined`) because its properties come from the main file. Xacro reformats XML, so `grep -A4` (not `-A2`) to see `<stddev>`
+  - **`config/navsat.yaml`** (top key `navsat_transform`): `frequency 30`, `delay 3.0`, `magnetic_declination_radians 0.1605703` (+9.2°, sign under test), `yaw_offset 0.0` (Madgwick ENU yaw 0 = facing east already), `zero_altitude true`, `broadcast_cartesian_transform false`, `publish_filtered_gps true`, `use_odometry_yaw false`, `wait_for_datum false`
+    - Default topics `imu/data`, `gps/fix`, `odometry/filtered` already match → no remaps. New yaml file → rebuild once
+    - Trap 1: wrote `9.2` (degrees) in a `_radians` param
+    - Trap 2: `yaw_offset: 0` crashed the node (exit code −6 = SIGABRT, uncaught exception). YAML `0` = integer, node declares a double → `InvalidParameterTypeException`. Write `0.0`
+  - Added `navsat_transform_node` (`name='navsat_transform'`, `parameters=[navsat_config]`) to `localization.launch.py`. At rest, `/odometry/gps` ≈ (0.04, 0.00): first fix becomes the origin
+  - **Declination sign test** (turn left ~90°, drive north, compare track directions with `atan2(y, x)`; correct sign → tracks agree, wrong sign → ~18° apart):
+    - Truth (`gz model`): (0.059, 1.905), yaw 89.3°, track 88.2°. EKF: (0.363, 1.867), yaw 80.2°, track 79.0° (= truth − 9.2°, odom frame rotated by declination, as expected). GPS: (0.663, 1.811), track 71.0° (truth − 17.2°, **~8° wrong**)
+    - Log: `Corrected for magnetic declination of 0.16057, user-specified offset of 0 and meridian convergence of 0.0152466. Transform heading factor is now 0.175817`
+    - Source ([navsat_transform.cpp](https://github.com/cra-ros-pkg/robot_localization/blob/jazzy-devel/src/navsat_transform.cpp)): `imu_yaw += declination + yaw_offset + convergence`, then logs `imu_yaw`. 0.175817 − 0.16057 − 0.01525 ≈ 0 → **captured raw IMU yaw ≈ 0** (should be ≈ −0.16 rad). Exactly 0 looks like an identity quaternion, not a noisy reading. Plugging in 0 predicts a ~69° GPS track (measured 70–71°)
+    - The transform is computed **once** (first timer tick with IMU + odom + GPS), then locked; later IMU messages are ignored. One bad snapshot ruins the whole run
+    - Ruled out: Madgwick slow start. `/imu/data` `orientation.z` = 0.644 (80.2°) from the very first message after a relaunch → raising `delay` won't fix it
+    - Open: one-off startup race (previous run came right after a crash + "Still waiting for data" warnings) vs. something systematic (2nd publisher on `/imu/data`, IMU→`base_link` TF lookup)
+    - Formula says `+0.160` should be right (−9.3° + 9.2° ≈ 0), not confirmed until the snapshot is clean
+  - Madgwick "Still waiting for data on topics imu/data_raw and imu/mag" = no IMU data (sim not running/paused). Topic names in that warning are hardcoded text, not a remap problem. Start the sim first, then localization
 
 ## Frames (`ugv`)
 
@@ -187,8 +210,8 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo with `test_world.sdf` + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + EKF). **Required**: without it nothing publishes `odom → base_link`.
-8. Continue with Step 12 chunk B part 2 (see Planned next steps).
+7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + EKF + navsat_transform). Start it **after** the sim is up. **Required**: without it nothing publishes `odom → base_link`.
+8. Continue with Step 12 chunk B part 2: finish the declination test (see Where I am + Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -209,7 +232,7 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
    - ~~Chunk A: local EKF~~ Done (2026-11-10). Run: `ros2 launch ugv_localization localization.launch.py` after `sim.launch.py`
    - **Chunk B: absolute sensors**
      - ~~Part 1: magnetometer + Madgwick, EKF fuses absolute yaw~~ Done (2026-11-10)
-     - **Part 2 (next):** `navsat_transform` (GPS lat/lon → meters on `/odometry/gps`, needs the IMU heading + `magnetic_declination_radians`; verify the sign by test, sim value ~−9.2° = −0.160 rad) + global EKF (`world_frame: map`, fuses `/odometry/gps` + same odom/IMU), publishes `map → odom`
+     - **Part 2 (in progress, 2026-11-14):** ~~GPS noise units~~ done, ~~`navsat_transform` running~~ done. Left: clean heading snapshot + declination sign test, GPS covariance relay, global EKF. Original plan: `navsat_transform` (GPS lat/lon → meters on `/odometry/gps`, needs the IMU heading + `magnetic_declination_radians`; verify the sign by test, sim value ~−9.2° = −0.160 rad) + global EKF (`world_frame: map`, fuses `/odometry/gps` + same odom/IMU), publishes `map → odom`
    - Chunk C: tuning. Known items: obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
