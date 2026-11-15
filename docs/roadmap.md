@@ -70,6 +70,22 @@ Raspberry Pi 5  (Nav2, robot_localization, perception)
 - A full-campus global costmap would be too large. Use a **rolling window**, a small grid that moves with the robot.
 - To check: `apt-cache policy ros-jazzy-nav2-route` (confirm the Route Server is packaged for Jazzy).
 
+## Time estimate (2026-11-15)
+
+Based on measured pace: smooth chunks ~20–40 min, debugging chunks 1–2 h. One session ≈ 2–3 h.
+
+| Step | Hours |
+|---|---|
+| 13.4 GPS waypoints | 1–1.5 |
+| 13.5 Collision Monitor | 0.5–1 |
+| 13.x Test ramp + terrain classifier v1 (v2 with medium costs: +4–8) | 2–4 |
+| 14 Campus world (OSM + elevation) | 6–12 |
+| 15 Sidewalk routing, click-to-go | 6–10 |
+| 16 Real dimensions + CAD | 2–4 |
+| **Phase 1 left** | **~16–28** (+2–4 classifier) |
+| Phase 2 hardware (my side, plus waiting on the EE team) | 20–45 |
+| Phase 3 LLM planner (optional) | 4–8 |
+
 ## Budget (target: under $1000, Pi already covered)
 
 Rough prices. Check current listings before buying.
@@ -127,7 +143,8 @@ Detailed checklist (code changes + what the EE team needs to provide): [sim-to-r
 - [ ] Drivetrain: motors, controller, chassis that can climb curbs within budget.
 - [ ] Is `nav2_route` packaged for Jazzy?
 - [ ] Curbs: climb them (project goal) or only use curb cuts? Decides whether a detected edge means "stop" or "slow down and climb".
-- [ ] Drop-off detection: step detector node (edges only, not surfaces) on the curb lidar. Thresholds from real lidar + real curbs.
+- [ ] Terrain classifier on the curb lidar: label flat / ramp / small step / ledge / drop by shape (slope + jumps), mark only unsafe edges. Small steps (2–7 cm) = medium cost (needs a C++ costmap layer, v2). Thresholds from real lidar + real curbs. Also: long uphills look like walls to the 360° lidar.
+- [ ] Max climbable step height and slope (up and down) for the real drivetrain.
 
 ## References
 

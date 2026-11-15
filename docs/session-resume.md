@@ -13,8 +13,8 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 **Step 12 done (2026-11-15):** GPS noise fixed (degrees, not meters), `navsat_transform` reads Madgwick (`imu` → `/imu/data` remap), declination `+0.1606` confirmed (EKF and GPS tracks 4 cm apart), `gps_cov_relay` fills GPS covariance, **global EKF publishes `map → odom`**. Robot stays put in `map` when wheels slip against a block. Process noise x/y 0.001 cut the GPS jitter from 2–4 cm to a few mm.
 Sim → real checklist (code changes + what the EE team must provide): [sim-to-real.md](sim-to-real.md).
 **Step 13 chunks 1–3 done (2026-11-15):** new `ugv_navigation` package. Nav2 drives to RViz goals, plans around the box, and sees the curb via the tilted lidar (voxel layers in both costmaps, height filter 8 cm). Added `base_footprint` (ground frame) so z = 0 is the ground.
-**Design item (open):** drop-offs / negative obstacles. Current filter only sees things *above* ground. Plan: a "step detector" node that marks only edges (sudden jumps in the curb-lidar line), not surfaces. See Step 13 notes.
-**Next: Step 13 chunk 4, GPS waypoints** (goals in lat/lon). See [Planned next steps](#planned-next-steps).
+**Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
+**Next: Step 13 chunk 4, GPS waypoints** (goals in lat/lon), or a test ramp + terrain classifier v1. See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -212,6 +212,26 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
     - Thresholds depend on the real lidar and real curbs → build after hardware data, or at least retune then
     - Team question: climb curbs (project goal) or only use curb cuts? Decides if an edge = "stop" or "slow down and climb"
     - OSM sidewalk routes (Step 15) are the main defense; costmap is the backup
+  - **Design item: upward ramps** (2026-11-15, not built yet)
+    - Curb lidar: a ramp rising 8+ cm gets flagged like a curb. Height alone can't tell them apart; **shape** can (ramp = gradual, curb = sudden jump)
+    - 360° lidar (flat plane ~27 cm up): a long uphill crosses the plane and looks like a wall. Distance ≈ 0.27 / tan(slope): **5° (ADA ramp) → ~3 m, 10° → ~1.5 m**
+    - Fix ideas: judge **slope**, not height (≤ max climbable, e.g. 10–15° = drivable). For the 360° lidar: ignore hits that match the ground slope from the curb lidar (simple), or a 3D elevation map (`grid_map` / elevation mapping, heavier on the Pi)
+    - Test first: add a ramp (tilted box) to `test_world.sdf` to see both problems in sim
+  - **Design: terrain classifier** (combines drop-offs + ramps; likely the most important custom piece of the robot)
+    - Label each edge in the curb-lidar line by height:
+
+      | Edge height | Label | Costmap |
+      |---|---|---|
+      | < 2 cm | Flat (noise) | nothing |
+      | 2–7 cm (~1–3 in) | Small step, OK to cross | **medium cost** (e.g. 150) |
+      | > 7 cm | Ledge / curb | lethal (254) |
+      | Gentle slope ≤ max climb | Ramp | nothing |
+      | Steep slope | Too steep | lethal |
+
+    - Thresholds depend on the real robot (track size, torque, up vs down)
+    - **Avoid zig-zagging between levels:** costmap cells are 0 (free) → 254 (lethal), not just yes/no. Crossing a small step costs something, so the planner only crosses when it saves real distance. Same costs every replan → stable path. Which surface to use is the route's job (Step 15)
+    - Limits: costmaps have **no direction** (can't say "OK down, not up"). Medium costs need a **custom C++ costmap layer**; standard layers only mark lethal
+    - **v1** (~2–3 h): Python node, small steps ignored, big edges + steep slopes lethal. **v2** (~4–8 h): C++ costmap layer with medium costs
 
 ## Frames (`ugv`)
 
@@ -287,7 +307,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Chunk C: tuning. ~~GPS jitter (process noise)~~ done. Optional leftovers (revisit if Nav2 struggles): obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
-5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15. **Next: (4) GPS waypoints (lat/lon goals)**, (5) Collision Monitor (add curb lidar, tune). Later: step detector for drop-offs (design item above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
+5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15. **Next: (4) GPS waypoints (lat/lon goals)**, (5) Collision Monitor (add curb lidar, tune). Then: test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
 
 ## Gotchas so far
