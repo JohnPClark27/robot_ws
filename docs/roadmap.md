@@ -99,11 +99,11 @@ Rough prices. Check current listings before buying.
 | 9 | Add an IMU to `vehicle_blue` (copy in `src/robot_sim/worlds/`) | Done |
 | 10 | Tracked skid-steer robot (tracks approximated as wheels per side) as a ROS package + URDF/xacro, placeholder dimensions; move the IMU onto it | Sim sensors complete (2026-11-09): drives with teleop, RViz config saved, IMU with noise (2026-10-24); 360° lidar + front/rear cameras (2026-11-07); own world `test_world.sdf` with obstacles, curb lidar + depth cam, magnetometer (2026-11-09). Bump sensors moved to Phase 2 (firmware) |
 | 11 | Add GPS (`navsat` sensor) | Done (2026-11-09): `/gps/fix`, campus origin in `<spherical_coordinates>`, RTK-level noise |
-| 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | In progress. Chunk A done (2026-11-10): `ugv_localization` package, `odom_cov_relay`, local EKF owns `odom → base_link`. Chunk B part 1 done (2026-11-10): `mag_relay` (gz NED/gauss → ENU/tesla), Madgwick absolute yaw fused. Next: `navsat_transform` + global EKF (`map` frame), then C tuning |
-| 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | |
-| 14 | Swap in real dimensions and CAD meshes from Fusion 360; re-place 360° lidar, cameras, tilted curb lidar to match the real mounts | |
-| 15 | Build the campus world (OSM + elevation → mesh → Gazebo) | |
-| 16 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | |
+| 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Done (2026-11-15). Local EKF (`odom → base_link`), `mag_relay` + Madgwick absolute yaw, `navsat_transform` (declination +0.1606 verified), `gps_cov_relay`, global EKF (`map → odom`), process noise tuned. Optional tuning leftovers in [session-resume.md](session-resume.md) |
+| 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | In progress. Chunks 1–3 done (2026-11-15): `ugv_navigation`, goals from RViz, avoids box, curb lidar in both costmaps (voxel layers), `base_footprint`. Next: GPS waypoints, Collision Monitor. Design item: drop-off step detector |
+| 14 | Build the campus world (OSM + elevation → mesh → Gazebo) | |
+| 15 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | |
+| 16 | Swap in real dimensions and CAD meshes from Fusion 360; re-place 360° lidar, cameras, tilted curb lidar to match the real mounts. (Moved after the OSM steps on 2026-11-15) | |
 
 ### Phase 2: Hardware
 
@@ -126,6 +126,8 @@ Detailed checklist (code changes + what the EE team needs to provide): [sim-to-r
 - [x] Curb sensor: depth camera or tilted lidar? **Tilted 2D lidar** (cost), decided 2026-11-09 after the sim comparison.
 - [ ] Drivetrain: motors, controller, chassis that can climb curbs within budget.
 - [ ] Is `nav2_route` packaged for Jazzy?
+- [ ] Curbs: climb them (project goal) or only use curb cuts? Decides whether a detected edge means "stop" or "slow down and climb".
+- [ ] Drop-off detection: step detector node (edges only, not surfaces) on the curb lidar. Thresholds from real lidar + real curbs.
 
 ## References
 

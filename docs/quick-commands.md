@@ -38,11 +38,26 @@ rviz2 -d $(ros2 pkg prefix ugv_description)/share/ugv_description/rviz/ugv.rviz 
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
-**Terminal 4: localization (required: publishes `odom → base_link`)** — odom_cov_relay + mag_relay + Madgwick + EKF
+**Terminal 4: localization (required: publishes `odom → base_link` + `map → odom`)** — odom_cov_relay + mag_relay + Madgwick + local EKF + gps_cov_relay + navsat_transform + global EKF. RViz Fixed Frame: `map`
 ```bash
 ros2 launch ugv_localization localization.launch.py
 ```
 Changed `setup.py` / added a file / changed `ekf.yaml`? Rebuild first: `colcon build --symlink-install --packages-select ugv_localization && source install/setup.bash`
+
+**Terminal 5: Nav2** (after localization; wait for `Managed nodes are active`). RViz: 2D Goal Pose to send a goal. No teleop while Nav2 drives
+```bash
+ros2 launch ugv_navigation navigation.launch.py
+```
+
+### ugv: Nav2 checks
+
+```bash
+ros2 node list | grep -E "ekf|navsat"                 # localization running? (Nav2 needs odom + map TF)
+ros2 run tf2_ros tf2_echo map base_footprint          # full TF chain OK?
+ros2 run tf2_ros tf2_echo base_footprint base_link    # fixed 0.15 m
+grep -n "base_link\|base_footprint" /ws/src/ugv_navigation/config/nav2_params.yaml   # robot frame settings
+```
+RViz displays: Path `/plan`, Map `/local_costmap/costmap`, Map `/global_costmap/costmap`, LaserScan `/scan_curb` (size 0.03).
 
 RViz only (no Gazebo, fake joint angles):
 ```bash
@@ -104,8 +119,12 @@ xacro src/ugv_description/urdf/ugv.urdf.xacro | grep -A4 "<horizontal>" | head -
 ros2 topic echo /odometry/gps --once --field pose.pose.position   # navsat_transform output, ≈ (0, 0) at start
 ros2 topic info /imu/data --verbose | grep -E "Node name|Publisher count"   # want 1: imu_filter_madgwick
 ros2 topic echo /imu/data --field orientation.z                   # start BEFORE relaunching localization to see first msgs
+ros2 node info /navsat_transform                                  # real subscribed topic names (it reads `imu`, not `imu/data`!)
+ros2 topic echo /odometry/gps --once --field pose.covariance      # 0.0004 at 0 and 7 (gps_cov_relay working)
+ros2 run tf2_ros tf2_echo map odom                                # global EKF correction; drifts as wheel odom drifts
+ros2 topic echo /odometry/global --field pose.pose.position       # global EKF; at rest should move only mm
 ```
-navsat startup log: `Transform heading factor is now F` → captured raw IMU yaw = F − 0.1758 (declination + convergence). Should match the robot's magnetic yaw at that moment, not 0.
+navsat startup log: `Transform heading factor is now F` → captured raw IMU yaw = F − 0.1758 (declination + convergence). Should match the robot's magnetic yaw at that moment, not 0. Good value at spawn: factor ≈ 0.015 (raw ≈ −0.161).
 
 ## Old: `vehicle_blue` (diff_drive.sdf) + TF in RViz: 4 terminals
 

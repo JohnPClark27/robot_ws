@@ -44,7 +44,7 @@ Gazebo ──► ros_gz_bridge ──► ROS      sensors ──► drivers on P
 | GPS covariance | 0.0004 (2 cm, RTK fixed) | From the driver. Check it **grows** when RTK drops to float/standard |
 | IMU noise | Guessed MEMS values | From the datasheet, or measure at rest |
 | Madgwick `orientation_stddev` | 0.05 | Retune after mag calibration |
-| Robot size, sensor positions | Placeholders | Real Fusion 360 measurements (roadmap Step 14) |
+| Robot size, sensor positions | Placeholders | Real Fusion 360 measurements (roadmap Step 16) |
 
 ### New things to add
 

@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -10,8 +10,11 @@ Working through Gazebo Harmonic + ROS 2 Jazzy basics in the Docker container.
 Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer (`/mag`), 360° lidar (`/scan`), front + rear cameras (`/front_cam/image_raw`, `/rear_cam/image_raw`), GPS (`/gps/fix`), tilted curb lidar (`/scan_curb`), depth camera (`/depth_cam/points`, comparison only). Bump sensors moved to Phase 2 (firmware).
 **Step 12 chunk A done (2026-11-10):** new `ugv_localization` package, local EKF fuses wheel odom + gyro and now owns `odom → base_link`. RViz robot matches Gazebo much better (not perfect: only rates fused, so drift still accumulates).
 **Step 12 chunk B part 1 done (2026-11-10):** `mag_relay` converts Gazebo's mag (gauss, NED) to ROS (tesla, ENU), Madgwick fuses gyro + accel + mag into an absolute (magnetic) yaw, local EKF fuses it. Heading stays matched after spinning in place. `odom` x-axis now points ~9.2° off true east (magnetic declination, expected).
-**Step 12 chunk B part 2 in progress (2026-11-14):** fixed GPS noise units (was ~2 km, now ~2 cm), `navsat_transform` runs and publishes `/odometry/gps`. First declination test failed (GPS track ~8° off the EKF track) because `navsat_transform` captured an IMU yaw of ~0 instead of ~−9.3°.
-**Next:** read the "heading factor" log line from the latest localization launch (raw yaw = factor − 0.1758), check `/imu/data` has 1 publisher, then redo the drive test. After that: GPS covariance relay, then the global EKF (`map → odom`). See [Planned next steps](#planned-next-steps).
+**Step 12 done (2026-11-15):** GPS noise fixed (degrees, not meters), `navsat_transform` reads Madgwick (`imu` → `/imu/data` remap), declination `+0.1606` confirmed (EKF and GPS tracks 4 cm apart), `gps_cov_relay` fills GPS covariance, **global EKF publishes `map → odom`**. Robot stays put in `map` when wheels slip against a block. Process noise x/y 0.001 cut the GPS jitter from 2–4 cm to a few mm.
+Sim → real checklist (code changes + what the EE team must provide): [sim-to-real.md](sim-to-real.md).
+**Step 13 chunks 1–3 done (2026-11-15):** new `ugv_navigation` package. Nav2 drives to RViz goals, plans around the box, and sees the curb via the tilted lidar (voxel layers in both costmaps, height filter 8 cm). Added `base_footprint` (ground frame) so z = 0 is the ground.
+**Design item (open):** drop-offs / negative obstacles. Current filter only sees things *above* ground. Plan: a "step detector" node that marks only edges (sudden jumps in the curb-lidar line), not surfaces. See Step 13 notes.
+**Next: Step 13 chunk 4, GPS waypoints** (goals in lat/lon). See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -55,7 +58,7 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
   - `ros_gz_bridge` node in `sim.launch.py`: `/clock` `[`, `/cmd_vel` `]`, `/odom` `[`, `/joint_states` (`gz.msgs.Model`) `[`, `/model/ugv/tf` (`gz.msgs.Pose_V`) `[` with `remappings=[('/model/ugv/tf', '/tf')]`
   - Found the TF topic with `gz topic -l | grep tf`, its type with `gz topic -i -t /model/ugv/tf`
   - RViz config saved to `src/ugv_description/rviz/ugv.rviz` (Fixed Frame `odom`, RobotModel, TF), `rviz` added to `install(DIRECTORY ...)` in CMakeLists
-  - Known quirk (see below): DiffDrive odom is 2D (z = 0), so `base_link` sits at ground level in RViz (robot looks half-sunk). Fix later with a `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html))
+  - Known quirk: DiffDrive odom is 2D (z = 0), so `base_link` sat at ground level in RViz (robot looked half-sunk). **Fixed 2026-11-15** with a `base_footprint` frame ([REP 105](https://www.ros.org/reps/rep-0105.html))
 
 - [x] Step 10 IMU (2026-10-24): IMU on the ugv
   - `imu_link` (no geometry) + fixed `imu_joint` from `base_link`, `xyz="0 0 ${body_h/2}"` (top of the body). Fixed joints → `robot_state_publisher` publishes once on `/tf_static` (stamp 0 is normal)
@@ -141,7 +144,7 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
   - `ekf.yaml`: `imu0: /imu/data`, fuse **yaw + vyaw**. `tf2_echo odom base_link` at spawn: yaw −9.294° → `odom` x-axis = magnetic east (fine for the local EKF; `map` handles true north)
   - Drive test: heading matches Gazebo after spinning. Obstacles wiggle slightly in RViz when changing direction = pose error made visible (not GPS, it isn't fused yet). Suspects for chunk C: Madgwick `gain` lag, slip in wheel `vx`
   - Ran `docker compose build` (rosdep) → new container → `colcon build` first
-- [~] Step 12 chunk B part 2 (2026-11-14, in progress): GPS → `navsat_transform`
+- [x] Step 12 chunk B part 2 (2026-11-14 → 11-15): GPS → `navsat_transform` → global EKF
   - **GPS noise bug:** robot ~0.7 m from origin (`gz model -m ugv -p` = ground truth), but `/gps/fix` said ~1.5 km away, and a 2nd fix jumped ~2 km. Random jumps = noise, not an offset
     - gz-sensors NavSat applies `<horizontal>` noise to **lat/lon in degrees**, not meters. `0.02` = 0.02° ≈ 2.2 km. `<vertical>` (altitude) is in meters
     - Fix in `ugv_sensors.xacro`: keep `gps_h_std` in meters, add `gps_h_std_deg = ${gps_h_std / 111320}` (= 1.797e-07) and use it in `<horizontal>`. Longitude noise ends up ~1.3× bigger (cos 40.5°), fine for sim
@@ -160,16 +163,63 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
     - Source ([navsat_transform.cpp](https://github.com/cra-ros-pkg/robot_localization/blob/jazzy-devel/src/navsat_transform.cpp)): `imu_yaw += declination + yaw_offset + convergence`, then logs `imu_yaw`. 0.175817 − 0.16057 − 0.01525 ≈ 0 → **captured raw IMU yaw ≈ 0** (should be ≈ −0.16 rad). Exactly 0 looks like an identity quaternion, not a noisy reading. Plugging in 0 predicts a ~69° GPS track (measured 70–71°)
     - The transform is computed **once** (first timer tick with IMU + odom + GPS), then locked; later IMU messages are ignored. One bad snapshot ruins the whole run
     - Ruled out: Madgwick slow start. `/imu/data` `orientation.z` = 0.644 (80.2°) from the very first message after a relaunch → raising `delay` won't fix it
-    - Open: one-off startup race (previous run came right after a crash + "Still waiting for data" warnings) vs. something systematic (2nd publisher on `/imu/data`, IMU→`base_link` TF lookup)
-    - Formula says `+0.160` should be right (−9.3° + 9.2° ≈ 0), not confirmed until the snapshot is clean
+    - **Root cause (2026-11-15):** `navsat_transform` subscribes to **`imu`**, not `imu/data` (checked the source: `create_subscription<Imu>("imu", ...)`; the docs/my earlier claim were wrong). It was reading Gazebo's raw `/imu`, whose orientation is perfect true heading (0° at spawn, no noise) → declination added on top = ~9° error. Same wrong value every launch = systematic, not a race
+    - **Fix:** remap `('imu', '/imu/data')` on the navsat node. Heading factor became 0.0151 → raw yaw = 0.0151 − 0.1758 = −0.161 rad (−9.2°) = Madgwick ✅. Leftover 0.015 = meridian convergence
+    - **Drive test passed:** EKF (0.450, 2.235) vs GPS (0.459, 2.278), both 78.6°, 4 cm apart. **`+0.1606` is the right sign** (true yaw = imu yaw + declination)
+    - Lesson: don't trust default topic names from memory; check `ros2 node info /navsat_transform` (Subscribers) or the source
+  - **`gps_cov_relay` node** (`ugv_localization/gps_cov_relay.py`, sim only): `/gps/fix` → `/gps/fix_cov`
+    - `NavSatFix.position_covariance` = 3×3 (east, north, up) = **9 values**, diagonal at `i*3 + i` (0, 4, 8). `POS_DIAG = [0.0004, 0.0004, 0.0016]` (2 cm / 4 cm squared)
+    - Set `position_covariance_type = NavSatFix.COVARIANCE_TYPE_DIAGONAL_KNOWN` (2)
+    - Registered in `setup.py`, added to the launch file, navsat remap `('gps/fix', '/gps/fix_cov')`. New node → rebuild
+    - Check: `/odometry/gps` `pose.covariance` shows 0.0004 at 0 and 7, 0.0016 at 14
+  - **Global EKF** (2nd `ekf_node`, `name='ekf_filter_node_map'`, same `ekf.yaml`, 2nd top-level block)
+    - `world_frame: map`, `map_frame: map`, `publish_tf: true` → publishes **`map → odom`**. Same `odom0` (`/wheel/odom`) + `imu0` (`/imu/data`) as the local EKF, plus `odom1: /odometry/gps` fusing **x, y only** (z false: not using altitude)
+    - The node `name` picks which yaml block it reads
+    - Output remap `('odometry/filtered', '/odometry/global')`, else both EKFs publish on the same topic. navsat now reads `('odometry/filtered', '/odometry/global')` (standard dual-EKF setup)
+    - **Test against the box:** wheels spinning, robot stuck. Fixed Frame `odom`: robot keeps "driving" forward (wheel slip). 2nd axis = `map`, slides backward to cancel it. Fixed Frame **`map`**: robot stays put ✅. `map → odom` = the correction for odom drift
+  - **GPS jitter tuning:** robot stopped but shaking in `map`. Measured: `/odometry/global` jumped 2–4 cm every 3rd message (EKF 30 Hz, GPS 10 Hz), heading only ±0.1°
+    - Not wheels (pressing `k` didn't help), not GPS covariance (0.01 made no visible difference)
+    - Cause: default **process noise** x, y = 0.05 ("robot may drift ~22 cm/s on its own") → EKF trusts GPS almost 1:1
+    - Fix: `process_noise_covariance` (15×15 = 225 values) in the **global** block only, x and y = **0.001**, rest = defaults. Now mostly mm jumps, occasional ~2 cm. 0.0001 = smoother but slower to correct drift
+    - Write every entry as `0.0` (doubles), same type trap as `yaw_offset`
   - Madgwick "Still waiting for data on topics imu/data_raw and imu/mag" = no IMU data (sim not running/paused). Topic names in that warning are hardcoded text, not a remap problem. Start the sim first, then localization
+- [x] Step 13 chunks 1–3 (2026-11-15): Nav2
+  - **Nav2 pieces:** planner (draws the path), controller (follows it, sends `/cmd_vel`), costmaps (grid of safe/unsafe cells from the lidar), BT navigator (the boss: plan, follow, retry). **No AMCL / map server**: they're for indoor pre-made maps; the EKFs already give `map`
+  - **Package:** `ros2 pkg create ugv_navigation --build-type ament_cmake`, delete `include/` + `src/`, add `config/` + `launch/`, `install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})`, `<exec_depend>nav2_bringup</exec_depend>`
+  - `config/nav2_params.yaml` = copy of `/opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml`. Changes:
+    - `odom_topic` → `/odometry/filtered` (local EKF) in `bt_navigator` + `velocity_smoother`
+    - `robot_radius: 0.22` → `footprint: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"` (both costmaps)
+    - Global costmap: no `static_layer` (it waits forever for a map that doesn't exist), `rolling_window: true`, 50 × 50 m, `track_unknown_space: false`. Local: 5 × 5 m
+    - Every robot frame setting (`robot_base_frame`, `base_frame_id`, `base_frame`) → `base_footprint`
+  - `launch/navigation.launch.py`: `IncludeLaunchDescription` of `nav2_bringup/launch/navigation_launch.py` with `use_sim_time: 'True'` + `params_file`
+  - Local costmap uses `odom` (smooth, never jumps: good for dodging), global uses `map` (GPS-corrected: good for long routes)
+  - **Debug 1:** `Invalid frame ID "odom" ... frame does not exist` = localization not running (`ros2 node list` had no EKFs). Start order: sim → localization → navigation. Wait for `Managed nodes are active`. Errors after `^C` are shutdown noise
+  - **Debug 2:** path planned but robot didn't move. `Failed to get "lidar_link"->"base_footprint"`: Collision Monitor (last in the `cmd_vel` chain: controller → velocity_smoother → collision_monitor → `/cmd_vel`) defaulted to `base_footprint`, which didn't exist yet → blocked all commands
+  - Harmless: "Control loop missed its desired rate of 20 Hz. Current loop rate is 41 Hz" (sim-time quirk)
+  - Don't use teleop while Nav2 drives (both publish `/cmd_vel`)
+  - RViz: Fixed Frame `map`, Path on `/plan`, Map displays on `/local_costmap/costmap` + `/global_costmap/costmap`, goal with **2D Goal Pose**
+  - Chunk 2: goal behind the box → path curves around it. Inflation "halo" = Nav2 plans for the robot's center, so cells where the body would hit (+ margin) are costly
+  - **`base_footprint` frame** ([REP 105](https://www.ros.org/reps/rep-0105.html)): `<link name="base_footprint"/>` + fixed joint to `base_link` at z = `${-wheel_z + wheel_r}` = 0.15. DiffDrive `<child_frame_id>base_footprint`, both EKFs `base_link_frame: base_footprint`. Tree: `map → odom → base_footprint → base_link → sensors`. Ground = z 0 → simple height filters, robot no longer half-sunk in RViz
+  - **Chunk 3, curb:** `/scan_curb` in RViz: straight ground line, breaks into an angled step at the curb
+    - Added source `scan_curb` to the voxel layer: `min_obstacle_height: 0.08` (ignore ground hits), `max_obstacle_height: 0.5`, `obstacle_max_range: 2.0`, `raytrace_max_range: 2.5`
+    - Local only → robot got stuck: global planner (blind to the curb) drew a path through it, local controller refused. Both costmaps must agree
+    - Global costmap switched from `obstacle_layer` (2D) to a **`voxel_layer` (3D)** with `scan` + `scan_curb`. In 2D, 360° lidar rays passing *over* the curb would erase it. → planner routes around the curb's end ✅
+  - **Design item: drop-offs and memory** (not built yet)
+    - Height filter only catches things *above* ground. A sidewalk ledge (drop) is invisible today
+    - Marking "low points" (z < −8 cm) also flags downhill ramps, **and marks the road surface itself** as danger. Ground hits are filtered out, so they never erase those marks → stale danger when the robot later drives on the road
+    - Plan: **step detector node**. Read `/scan_curb`, find sudden jumps between neighboring points (step) vs gradual change (ramp), publish only the **edge** as an obstacle. Edge looks the same from above or below, surfaces stay clean. Heights are relative to the robot (it's always at z 0)
+    - Option: a decaying layer (STVL, check it's packaged for Jazzy) so old marks fade
+    - Thresholds depend on the real lidar and real curbs → build after hardware data, or at least retune then
+    - Team question: climb curbs (project goal) or only use curb cuts? Decides if an edge = "stop" or "slow down and climb"
+    - OSM sidewalk routes (Step 15) are the main defense; costmap is the backup
 
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
 |---|---|---|
-| `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. RViz Fixed Frame. x-axis = magnetic east (~9.2° off true east) since the EKF fuses Madgwick yaw |
-| `base_link` | `ekf_filter_node` (`odom` → `base_link`). DiffDrive's TF is no longer bridged | Robot body center |
+| `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. Local costmap frame. x-axis = magnetic east (~9.2° off true east) since the EKF fuses Madgwick yaw |
+| `base_footprint` | `ekf_filter_node` (`odom` → `base_footprint`). DiffDrive's TF is not bridged | On the ground under the robot center (z 0). Nav2 robot frame |
+| `base_link` | `robot_state_publisher` (`/tf_static`, fixed joint) | Robot body center, 0.15 m above `base_footprint` |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
 | `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.1 m above `base_link` (top of body). Madgwick has `publish_tf: False` so it doesn't add a 2nd parent |
 | `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center, 0.12 m above `base_link` |
@@ -178,7 +228,7 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 | `gps_link` | `robot_state_publisher` (`/tf_static`) | GPS antenna, top of body, 0.15 m behind `base_link` |
 | `depth_cam_link` | `robot_state_publisher` (`/tf_static`) | Depth camera, front face, pitched 30° down. Point cloud `frame_id` |
 | `curb_lidar_link` | `robot_state_publisher` (`/tf_static`) | Tilted curb lidar, front face, pitched 13° down |
-| `map` | Not yet | Comes from the global EKF (Step 12, chunk B) |
+| `map` | `ekf_filter_node_map` (global EKF, `map → odom`) | True position (GPS-corrected). x-axis = true east. Use as RViz Fixed Frame from now on; Nav2 uses it |
 
 ## Frames (old, from `diff_drive.sdf`)
 
@@ -210,8 +260,9 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 4. Terminal 1: `ros2 launch ugv_description sim.launch.py` (Gazebo with `test_world.sdf` + robot_state_publisher + spawn + bridge). Or `display.launch.py` for RViz only.
 5. Extra terminals (host `jpcli@`): check `docker ps` shows exactly one container, then `docker exec` into it and `source install/setup.bash` (see [quick-commands.md](quick-commands.md)).
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
-7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + EKF + navsat_transform). Start it **after** the sim is up. **Required**: without it nothing publishes `odom → base_link`.
-8. Continue with Step 12 chunk B part 2: finish the declination test (see Where I am + Planned next steps).
+7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + local EKF + gps_cov_relay + navsat_transform + global EKF). Start it **after** the sim is up. **Required**: without it nothing publishes `odom → base_link`.
+8. Terminal 3: `ros2 launch ugv_navigation navigation.launch.py` after localization. Wait for `Managed nodes are active`. RViz Fixed Frame `map`, send goals with 2D Goal Pose.
+9. Continue with Step 13 chunk 4 (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -232,15 +283,17 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
    - ~~Chunk A: local EKF~~ Done (2026-11-10). Run: `ros2 launch ugv_localization localization.launch.py` after `sim.launch.py`
    - **Chunk B: absolute sensors**
      - ~~Part 1: magnetometer + Madgwick, EKF fuses absolute yaw~~ Done (2026-11-10)
-     - **Part 2 (in progress, 2026-11-14):** ~~GPS noise units~~ done, ~~`navsat_transform` running~~ done. Left: clean heading snapshot + declination sign test, GPS covariance relay, global EKF. Original plan: `navsat_transform` (GPS lat/lon → meters on `/odometry/gps`, needs the IMU heading + `magnetic_declination_radians`; verify the sign by test, sim value ~−9.2° = −0.160 rad) + global EKF (`world_frame: map`, fuses `/odometry/gps` + same odom/IMU), publishes `map → odom`
-   - Chunk C: tuning. Known items: obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
+     - ~~Part 2: GPS noise units, `navsat_transform`, declination test, GPS covariance relay, global EKF~~ Done (2026-11-15). Original plan: `navsat_transform` (GPS lat/lon → meters on `/odometry/gps`, needs the IMU heading + `magnetic_declination_radians`; verify the sign by test, sim value ~−9.2° = −0.160 rad) + global EKF (`world_frame: map`, fuses `/odometry/gps` + same odom/IMU), publishes `map → odom`
+   - Chunk C: tuning. ~~GPS jitter (process noise)~~ done. Optional leftovers (revisit if Nav2 struggles): obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
-5. Bring up Nav2 against the simulated robot (+ Collision Monitor).
+5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15. **Next: (4) GPS waypoints (lat/lon goals)**, (5) Collision Monitor (add curb lidar, tune). Later: step detector for drop-offs (design item above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
 
 ## Gotchas so far
 
+- Nav2 default params assume `base_footprint` and `/odom`. Grep for both when adapting them.
+- A costmap that's missing an obstacle the other one has = robot stuck (planner and controller disagree).
 - Bridge direction: `[` Gazebo→ROS, `]` ROS→Gazebo, `@` both.
 - Bridge message types are case-sensitive (`gz.msgs.Pose_V`, not `Pose_v`). A bad type only breaks that one topic; check Terminal 1 for the error.
 - Launch `remappings=` is a list of string tuples: `[('/from', '/to')]`. Unquoted topic names = Python syntax error.
