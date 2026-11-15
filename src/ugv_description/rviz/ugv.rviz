@@ -153,84 +153,21 @@ Visualization Manager:
       Value: true
       Visual Enabled: true
     - Class: rviz_default_plugins/TF
-      Enabled: true
+      Enabled: false
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        base_link:
-          Value: true
-        curb_lidar_link:
-          Value: true
-        depth_cam_link:
-          Value: true
-        front_cam_link:
-          Value: true
-        front_cam_optical_link:
-          Value: true
-        gps_link:
-          Value: true
-        imu_link:
-          Value: true
-        left_wheel_front:
-          Value: true
-        left_wheel_middle:
-          Value: true
-        left_wheel_rear:
-          Value: true
-        lidar_link:
-          Value: true
-        odom:
-          Value: true
-        rear_cam_link:
-          Value: true
-        rear_cam_optical_link:
-          Value: true
-        right_wheel_front:
-          Value: true
-        right_wheel_middle:
-          Value: true
-        right_wheel_rear:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        odom:
-          base_link:
-            curb_lidar_link:
-              {}
-            depth_cam_link:
-              {}
-            front_cam_link:
-              front_cam_optical_link:
-                {}
-            gps_link:
-              {}
-            imu_link:
-              {}
-            left_wheel_front:
-              {}
-            left_wheel_middle:
-              {}
-            left_wheel_rear:
-              {}
-            lidar_link:
-              {}
-            rear_cam_link:
-              rear_cam_optical_link:
-                {}
-            right_wheel_front:
-              {}
-            right_wheel_middle:
-              {}
-            right_wheel_rear:
-              {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -360,10 +297,84 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /plan
+      Value: true
+    - Alpha: 0.699999988079071
+      Binary representation: false
+      Binary threshold: 100
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /local_costmap/costmap
+      Update Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /local_costmap/costmap_updates
+      Use Timestamp: false
+      Value: true
+    - Alpha: 0.699999988079071
+      Binary representation: false
+      Binary threshold: 100
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /global_costmap/costmap
+      Update Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /global_costmap/costmap_updates
+      Use Timestamp: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: odom
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -406,25 +417,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.939075946807861
+      Distance: 8.566337585449219
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.8602891564369202
-        Y: -0.299395352602005
-        Z: 0.4453674852848053
+        X: 1.5705535411834717
+        Y: 0.21743321418762207
+        Z: -0.15223997831344604
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.45039793848991394
+      Pitch: 0.820397675037384
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.115400552749634
+      Yaw: 2.970405101776123
     Saved: ~
 Window Geometry:
   Displays:
@@ -444,5 +455,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1201
-  X: 524
-  Y: 283
+  X: 2232
+  Y: 1054

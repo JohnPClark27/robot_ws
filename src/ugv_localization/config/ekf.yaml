@@ -3,10 +3,10 @@ ekf_filter_node:              # must match the node name in the launch file
     use_sim_time: true
     frequency: 30.0           # Hz, how often the filter outputs
     two_d_mode: true          # ignore z, roll, pitch (flat-ish ground for now)
-    publish_tf: true          # publish odom -> base_link
+    publish_tf: true          # publish odom -> base_footprint
 
     odom_frame: odom
-    base_link_frame: base_link
+    base_link_frame: base_footprint
     world_frame: odom         # local EKF: world = odom (no map yet)
 
     odom0: /wheel/odom
@@ -32,7 +32,7 @@ ekf_filter_node_map:          # 2nd node name
 
     map_frame: map
     odom_frame: odom
-    base_link_frame: base_link
+    base_link_frame: base_footprint
     world_frame: map          # <- the key difference
 
     process_noise_covariance: [0.001, 0.0,     0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
