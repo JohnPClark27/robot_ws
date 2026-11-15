@@ -47,6 +47,7 @@ def generate_launch_description():
         executable='navsat_transform_node',
         name='navsat_transform',
         parameters=[navsat_config],
+        remappings=[('imu','/imu/data')],
     )
 
     return LaunchDescription([relay, ekf, mag, madgwick, navsat])
