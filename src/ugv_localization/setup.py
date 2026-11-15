@@ -30,6 +30,7 @@ setup(
         'console_scripts': [
             'odom_cov_relay = ugv_localization.odom_cov_relay:main',
             'mag_relay = ugv_localization.mag_relay:main',
+            'gps_cov_relay = ugv_localization.gps_cov_relay:main',
         ],
         
     },

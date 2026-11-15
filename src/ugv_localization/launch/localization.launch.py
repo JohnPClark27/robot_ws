@@ -47,7 +47,13 @@ def generate_launch_description():
         executable='navsat_transform_node',
         name='navsat_transform',
         parameters=[navsat_config],
-        remappings=[('imu','/imu/data')],
+        remappings=[('imu','/imu/data'), ('gps/fix', '/gps/fix_cov')],
     )
 
-    return LaunchDescription([relay, ekf, mag, madgwick, navsat])
+    gps_relay = Node(
+        package='ugv_localization',
+        executable='gps_cov_relay',
+        parameters=[{'use_sim_time': True}],
+    )
+
+    return LaunchDescription([relay, ekf, mag, madgwick, navsat, gps_relay])
