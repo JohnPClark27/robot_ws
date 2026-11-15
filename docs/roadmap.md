@@ -107,6 +107,8 @@ Rough prices. Check current listings before buying.
 
 ### Phase 2: Hardware
 
+Detailed checklist (code changes + what the EE team needs to provide): [sim-to-real.md](sim-to-real.md).
+
 - `ros2_control` hardware interface so sim and real use the same controllers and launch files.
 - ESP32 firmware (micro-ROS): motors, encoders, watchdog, e-stop.
 - Bump switches → ESP32 firmware motor cut-off (+ `/bumper` `std_msgs/Bool` for logging/recovery). Decide count and placement with the chassis design.
