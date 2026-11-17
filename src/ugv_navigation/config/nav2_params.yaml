@@ -415,18 +415,25 @@ collision_monitor:
     FootprintApproach:
       type: "polygon"
       action_type: "approach"
-      footprint_topic: "/local_costmap/published_footprint"
+      # footprint_topic: "/local_costmap/published_footprint"   # lags while moving
+      points: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"
       time_before_collision: 1.2
       simulation_time_step: 0.1
       min_points: 6
-      visualize: False
+      visualize: True
       enabled: True
-    observation_sources: ["scan"]
+    observation_sources: ["scan", "scan_curb"]
     scan:
       type: "scan"
       topic: "scan"
       min_height: 0.15
       max_height: 2.0
+      enabled: True
+    scan_curb:
+      type: "pointcloud"
+      topic: "/scan_curb_cloud"
+      min_height: 0.08
+      max_height: 0.5
       enabled: True
 
 docking_server:
