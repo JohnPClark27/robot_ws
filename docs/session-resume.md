@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -13,8 +13,10 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 **Step 12 done (2026-11-15):** GPS noise fixed (degrees, not meters), `navsat_transform` reads Madgwick (`imu` → `/imu/data` remap), declination `+0.1606` confirmed (EKF and GPS tracks 4 cm apart), `gps_cov_relay` fills GPS covariance, **global EKF publishes `map → odom`**. Robot stays put in `map` when wheels slip against a block. Process noise x/y 0.001 cut the GPS jitter from 2–4 cm to a few mm.
 Sim → real checklist (code changes + what the EE team must provide): [sim-to-real.md](sim-to-real.md).
 **Step 13 chunks 1–3 done (2026-11-15):** new `ugv_navigation` package. Nav2 drives to RViz goals, plans around the box, and sees the curb via the tilted lidar (voxel layers in both costmaps, height filter 8 cm). Added `base_footprint` (ground frame) so z = 0 is the ground.
+**Step 13 chunk 4 done (2026-11-17):** GPS waypoints. `gps_waypoints.py` (Simple Commander) sends a lat/lon route to Nav2's `/follow_gps_waypoints`, which converts each point with navsat's `/fromLL` service. Run: `ros2 run ugv_navigation gps_waypoints.py` after sim + localization + navigation.
+**Design item (open): `map` frame tilted ~9.2° from true ENU.** EKF yaw comes from Madgwick (magnetic), so `map` x points magnetic east, not true east. Fine for Nav2 (`/fromLL` uses the same frame). Fix before the OSM overlay or comparing to Gazebo ground truth. See Step 13 chunk 4 notes.
 **Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
-**Next: Step 13 chunk 4, GPS waypoints** (goals in lat/lon), or a test ramp + terrain classifier v1. See [Planned next steps](#planned-next-steps).
+**Next: Step 13 chunk 5, Collision Monitor** (add curb lidar, tune), or a test ramp + terrain classifier v1. See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -233,6 +235,24 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
     - Limits: costmaps have **no direction** (can't say "OK down, not up"). Medium costs need a **custom C++ costmap layer**; standard layers only mark lethal
     - **v1** (~2–3 h): Python node, small steps ignored, big edges + steep slopes lethal. **v2** (~4–8 h): C++ costmap layer with medium costs
 
+- [x] Step 13 chunk 4 (2026-11-17): GPS waypoints
+  - **How it works:** Nav2 only takes map x/y. `navsat_transform` offers services `/fromLL` (lat/lon → map x/y) and `/toLL` (reverse). Nav2's `waypoint_follower` (already started by `navigation_launch.py`) has a `/follow_gps_waypoints` action that calls `/fromLL` for each point. **No `nav2_params.yaml` change needed**
+  - Origin (`test_world.sdf` + datum, since `wait_for_datum: false` and the robot spawns there): **lat 40.515531, lon −85.655477**. At this latitude: 1 m north ≈ 0.00000898° lat (1 / 111,320), 1 m east ≈ 0.0000118° lon (1 / 84,650)
+  - `/fromLL` test: first call gave (533, 3287) = a **typo** in the latitude (40.5**4**55 vs 40.5**1**55 = 0.03° ≈ 3.3 km). `toLL(0, 0)` returned exactly the world origin → service fine, input wrong. Lesson: check the input before blaming the tool
+    - Correct origin → (0.04, −0.01). 0.0001° north (~11 m) → (1.82, 10.95), predicted (1.78, 10.96)
+  - **`map` frame tilt (design item):** a point due north came out rotated ~9.2° (x positive). EKFs fuse Madgwick's **magnetic** yaw, so `map`/`odom` x = magnetic east. Navsat adds declination so GPS matches the EKF, and `/fromLL` uses the same frame → goals land right. Matters later for the OSM overlay (Step 15) and comparing RViz to `gz model` truth. Possible fix: correct the IMU yaw by the declination before the EKFs
+  - `ros2 interface show nav2_msgs/action/FollowGPSWaypoints`: goal `gps_poses` = list of `geographic_msgs/GeoPose` (lat/lon/alt + orientation), feedback `current_waypoint` (index), result `missed_waypoints` (each with the converted map `PoseStamped`)
+  - **CLI test:** 5 m true east (lon −85.655418), `box_1` in the way:
+    ```bash
+    ros2 action send_goal /follow_gps_waypoints nav2_msgs/action/FollowGPSWaypoints "{gps_poses: [{position: {latitude: 40.515531, longitude: -85.655418, altitude: 0.0}}]}" --feedback
+    ```
+    - Gazebo truth (4.87, −0.10), `map` (4.82, −0.89) vs predicted (4.94, −0.80). Both ~15 cm off = inside `xy_goal_tolerance` (0.25 m). Yaw: gz 22.8°, map 13.6° → 9.2° tilt again
+  - **Script** `ugv_navigation/scripts/gps_waypoints.py` ([Simple Commander](https://docs.nav2.org/commander_api/index.html)): `BasicNavigator`, `waitUntilNav2Active(localizer='robot_localization')` (no AMCL), build `GeoPose` list, `followGpsWaypoints()`, loop on `isTaskComplete()`, print `getFeedback().current_waypoint`, `getResult()` (= `TaskResult`, not the missed list)
+    - Test route (truth): (0, 0) → (5, 0) → (5, 5) → (0, 0). Hardcoded for now; final version = click on a map to drop points (MapViz or a web map) → same `followGpsWaypoints()` call
+    - CMake package: `install(PROGRAMS scripts/gps_waypoints.py DESTINATION lib/${PROJECT_NAME})` (not `install(DIRECTORY ...)` → `share/`, where `ros2 run` doesn't look). `chmod +x` on the host
+    - `package.xml`: `exec_depend` on `rclpy`, `nav2_simple_commander`, `geographic_msgs` (so rosdep installs them for teammates)
+    - Bugs fixed: missing `sleep` import, `getFeedback()` returns `None` before the first feedback, **CRLF line endings** (`/usr/bin/env: 'python3\r': No such file or directory`, exit 127) → `sed -i 's/\r$//' <file>`. Added `.gitattributes` (`* text=auto eol=lf`) so it can't come back
+
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
@@ -282,7 +302,8 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 6. RViz with the saved config + teleop: see [quick-commands.md](quick-commands.md).
 7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + local EKF + gps_cov_relay + navsat_transform + global EKF). Start it **after** the sim is up. **Required**: without it nothing publishes `odom → base_link`.
 8. Terminal 3: `ros2 launch ugv_navigation navigation.launch.py` after localization. Wait for `Managed nodes are active`. RViz Fixed Frame `map`, send goals with 2D Goal Pose.
-9. Continue with Step 13 chunk 4 (see Planned next steps).
+9. Terminal 4 (optional): `ros2 run ugv_navigation gps_waypoints.py` drives the GPS test route.
+10. Continue with Step 13 chunk 5 (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -307,7 +328,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Chunk C: tuning. ~~GPS jitter (process noise)~~ done. Optional leftovers (revisit if Nav2 struggles): obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
-5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15. **Next: (4) GPS waypoints (lat/lon goals)**, (5) Collision Monitor (add curb lidar, tune). Then: test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
+5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17. **Next: (5) Collision Monitor** (add curb lidar, tune). Then: test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
 
 ## Gotchas so far
@@ -376,3 +397,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 - A topic name in a YAML/launch file that isn't in `ros2 topic list` = silent failure. Check with `ros2 topic list | grep <name>`
 - Frame conversions: test at 2+ orientations. One matching reading proves nothing
 - Obstacles moving in RViz (Fixed Frame `odom`) = localization error made visible
+- `/usr/bin/env: 'python3\r'` = Windows CRLF line endings. `file <script>` shows "with CRLF line terminators". Fix: `sed -i 's/\r$//' <file>`; `.gitattributes` keeps it LF
+- Python scripts in an `ament_cmake` package: `install(PROGRAMS ... DESTINATION lib/${PROJECT_NAME})` + `chmod +x`. `install(DIRECTORY)` puts them in `share/` → `ros2 run` says no executable found
+- Simple Commander `getFeedback()` returns `None` until the first feedback arrives. Check before using `.current_waypoint`
+- Weird `/fromLL` result? Run `/toLL` on (0, 0) and compare to the world origin. Digit typos in lat/lon = km errors (0.01° ≈ 1.1 km)

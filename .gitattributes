@@ -1,0 +1,9 @@
+# Force LF line endings for everyone (Windows editors add CRLF, which breaks
+# shebang lines like #!/usr/bin/env python3 in the Linux container).
+* text=auto eol=lf
+
+# Binary files: never touch
+*.png binary
+*.jpg binary
+*.stl binary
+*.dae binary

@@ -49,6 +49,17 @@ Changed `setup.py` / added a file / changed `ekf.yaml`? Rebuild first: `colcon b
 ros2 launch ugv_navigation navigation.launch.py
 ```
 
+**Terminal 6: GPS waypoint route** (after Nav2 is active). Waypoints = `WAYPOINTS` list in the script
+```bash
+ros2 run ugv_navigation gps_waypoints.py
+```
+One GPS goal from the CLI, plus lat/lon ↔ map checks:
+```bash
+ros2 action send_goal /follow_gps_waypoints nav2_msgs/action/FollowGPSWaypoints "{gps_poses: [{position: {latitude: 40.515531, longitude: -85.655418, altitude: 0.0}}]}" --feedback
+ros2 service call /fromLL robot_localization/srv/FromLL "{ll_point: {latitude: 40.515531, longitude: -85.655477, altitude: 0.0}}"
+ros2 service call /toLL robot_localization/srv/ToLL "{map_point: {x: 0.0, y: 0.0, z: 0.0}}"
+```
+
 ### ugv: Nav2 checks
 
 ```bash
