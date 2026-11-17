@@ -25,4 +25,6 @@ endif()
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
+install(PROGRAMS scripts/gps_waypoints.py DESTINATION lib/${PROJECT_NAME})
+
 ament_package()
