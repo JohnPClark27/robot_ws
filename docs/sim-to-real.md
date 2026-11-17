@@ -45,6 +45,7 @@ Gazebo ──► ros_gz_bridge ──► ROS      sensors ──► drivers on P
 | IMU noise | Guessed MEMS values | From the datasheet, or measure at rest |
 | Madgwick `orientation_stddev` | 0.05 | Retune after mag calibration |
 | Robot size, sensor positions | Placeholders | Real Fusion 360 measurements (roadmap Step 16) |
+| Collision Monitor zones | Only `FootprintApproach` (creeps, can touch) | Add a `stop` polygon (+ maybe `slowdown`) sized from real braking distance and top speed. Recheck that the curb lidar keeps short obstacles in view until contact |
 
 ### New things to add
 

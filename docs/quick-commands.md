@@ -53,6 +53,11 @@ ros2 launch ugv_navigation navigation.launch.py
 ```bash
 ros2 run ugv_navigation gps_waypoints.py
 ```
+**Test the Collision Monitor by hand** (teleop through the monitor; **hold** keys, tapping lets DiffDrive coast past the checks). RViz: Polygon `/FootprintApproach`, MarkerArray `/collision_monitor/collision_points_marker`
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=cmd_vel_smoothed
+ros2 topic hz /scan_curb_cloud                       # curb lidar → point cloud converter running?
+```
 One GPS goal from the CLI, plus lat/lon ↔ map checks:
 ```bash
 ros2 action send_goal /follow_gps_waypoints nav2_msgs/action/FollowGPSWaypoints "{gps_poses: [{position: {latitude: 40.515531, longitude: -85.655418, altitude: 0.0}}]}" --feedback

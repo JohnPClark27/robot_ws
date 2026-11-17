@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -14,9 +14,10 @@ Sensors on the ugv (all in `urdf/ugv_sensors.xacro`): IMU (`/imu`), magnetometer
 Sim → real checklist (code changes + what the EE team must provide): [sim-to-real.md](sim-to-real.md).
 **Step 13 chunks 1–3 done (2026-11-15):** new `ugv_navigation` package. Nav2 drives to RViz goals, plans around the box, and sees the curb via the tilted lidar (voxel layers in both costmaps, height filter 8 cm). Added `base_footprint` (ground frame) so z = 0 is the ground.
 **Step 13 chunk 4 done (2026-11-17):** GPS waypoints. `gps_waypoints.py` (Simple Commander) sends a lat/lon route to Nav2's `/follow_gps_waypoints`, which converts each point with navsat's `/fromLL` service. Run: `ros2 run ugv_navigation gps_waypoints.py` after sim + localization + navigation.
+**Step 13 chunk 5 done (2026-11-17):** Collision Monitor sees the curb (`laserscan_to_pointcloud` turns `/scan_curb` into `/scan_curb_cloud`, `pointcloud` source with 8 cm height filter) and uses a static footprint. Stop zone + tuning **deferred** until the real robot model.
 **Design item (open): `map` frame tilted ~9.2° from true ENU.** EKF yaw comes from Madgwick (magnetic), so `map` x points magnetic east, not true east. Fine for Nav2 (`/fromLL` uses the same frame). Fix before the OSM overlay or comparing to Gazebo ground truth. See Step 13 chunk 4 notes.
 **Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
-**Next: Step 13 chunk 5, Collision Monitor** (add curb lidar, tune), or a test ramp + terrain classifier v1. See [Planned next steps](#planned-next-steps).
+**Next: test ramp in `test_world.sdf` + terrain classifier v1** (Step 13 done except the deferred stop zone). See [Planned next steps](#planned-next-steps).
 
 ## Completed
 
@@ -253,6 +254,29 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
     - `package.xml`: `exec_depend` on `rclpy`, `nav2_simple_commander`, `geographic_msgs` (so rosdep installs them for teammates)
     - Bugs fixed: missing `sleep` import, `getFeedback()` returns `None` before the first feedback, **CRLF line endings** (`/usr/bin/env: 'python3\r': No such file or directory`, exit 127) → `sed -i 's/\r$//' <file>`. Added `.gitattributes` (`* text=auto eol=lf`) so it can't come back
 
+- [x] Step 13 chunk 5 (2026-11-17): Collision Monitor
+  - **What it is:** last-line safety node between Nav2 and the wheels: controller → velocity_smoother → `cmd_vel_smoothed` → **collision_monitor** → `/cmd_vel`. Reads raw sensor points (not costmaps), slows/stops if a hit is coming. [Docs](https://docs.nav2.org/configuration/packages/configuring-collision-monitor.html)
+  - **Test by hand through the monitor:** `ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=cmd_vel_smoothed` (plain teleop publishes `/cmd_vel` = skips the monitor). Don't send Nav2 goals at the same time
+  - **Monitor only runs when a command arrives** on `cmd_vel_smoothed` (no timer). Teleop publishes only on key press → tap `i` once, DiffDrive keeps rolling, monitor never re-checks → **drove into the box**. **Hold** the key (auto-repeat) to test. Nav2's controller sends 20 Hz, so autonomous driving is fine
+    - Same reason the green polygon in RViz only moved on a new key press, and no markers show while parked
+    - Real robot: firmware **watchdog** (no `/cmd_vel` for ~0.5 s → stop), already in [sim-to-real.md](sim-to-real.md)
+  - After touching the box the robot wouldn't move at all: box points **inside** the footprint = every command (even reverse) is an instant collision → zeros. Restart the sim to reset
+  - `Robot to approach for 1.200000 seconds away from collision` = monitor switched into approach mode (slowing), not an error
+  - **Visualize:** `visualize: True` on the polygon → RViz **Polygon** `/FootprintApproach` + **MarkerArray** `/collision_monitor/collision_points_marker` (points it counts as obstacles). Shows in **RViz, not Gazebo**. `ros2 param get /collision_monitor FootprintApproach.visualize` checks what the running node loaded
+  - **Footprint lag fix:** `footprint_topic: /local_costmap/published_footprint` updates a few times/s in `odom` → the monitor checked where the robot **was** (~25 cm behind at 0.5 m/s). Replaced with static `points: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"` (same as the costmap footprint, in `base_footprint`)
+  - **Approach mode** (`time_before_collision: 1.2`): simulates the footprint forward in 0.1 s steps, scales speed so the hit stays 1.2 s away (speed ≈ distance ÷ 1.2). Creeps closer and closer, never a hard stop → small errors (0.1 s steps, ~1 cm lidar noise, coasting) → **eventually touches**. Meant for getting close (docking), not for keeping a gap
+  - **Curb:** `/scan` (plane ~27 cm) passes over the 20 cm curb → drove straight into it. Monitor doesn't use costmaps, so chunk 3 didn't help
+    - `type: "scan"` sources have **no height filter** (flattened to 2D) → the tilted curb lidar's ground line ~1 m ahead would look like a permanent wall
+    - `type: "pointcloud"` sources do: `min_height` / `max_height` in `base_footprint`. So: **`laserscan_to_pointcloud_node`** (`pointcloud_to_laserscan` package) in `navigation.launch.py`, remaps `('scan_in', '/scan_curb')`, `('cloud', '/scan_curb_cloud')`
+    - Package wasn't installed: `<exec_depend>pointcloud_to_laserscan</exec_depend>` in `ugv_navigation/package.xml` → `docker compose build` (rosdep layer) → new container → `colcon build`
+    - Source block: `scan_curb: {type: "pointcloud", topic: "/scan_curb_cloud", min_height: 0.08, max_height: 0.5}`, added to `observation_sources`
+    - Rates match: `/scan_curb` and `/scan_curb_cloud` both ~5.9 Hz
+    - Result: **slows for the curb**, then bumps it (same approach creep as the box)
+  - **Finding node topic names:** left side of a remap = the node's internal name (README "Subscribed/Published Topics", or `ros2 node info`). Right side = your real topic (`ros2 topic list`) or a new name you pick
+    - **Lazy subscription:** `laserscan_to_pointcloud` only subscribes to `scan_in` while someone listens to `cloud` → `node info` showed `/cloud` but no `/scan_in`. `ros2 topic echo /cloud` in another shell → `/scan_in` appears. Also why `hz` first says "does not appear to be published yet"
+  - **Curb lidar geometry** (from the xacro): ~0.23 m up, pitched 13°, front of body. Ground hit ≈ 0.23 / tan 13° ≈ **1.0 m** ahead of the lidar. Sees the curb face (0–20 cm) from 1.0 m to 0.14 m, closer than that the beam lands on the curb **top** (z 0.2 > 0.08) → the curb never leaves view before contact. The monitor has **no memory** (latest scan only), so a shorter obstacle, or a different real lidar height/tilt, could vanish before contact. Recheck with real dimensions
+  - **Deferred (until the real robot model, Step 16):** a `stop` polygon a bit larger than the footprint (hard stop, guaranteed gap) + maybe a `slowdown` zone. Size depends on real braking distance and top speed: a 10 cm margin is too small at 1.5 m/s (latency + braking). Nav2's default config has `PolygonStop` / `PolygonSlow` as templates
+
 ## Frames (`ugv`)
 
 | Frame | Published by | Meaning |
@@ -303,7 +327,8 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 7. Terminal 2: `ros2 launch ugv_localization localization.launch.py` (odom_cov_relay + mag_relay + Madgwick + local EKF + gps_cov_relay + navsat_transform + global EKF). Start it **after** the sim is up. **Required**: without it nothing publishes `odom → base_link`.
 8. Terminal 3: `ros2 launch ugv_navigation navigation.launch.py` after localization. Wait for `Managed nodes are active`. RViz Fixed Frame `map`, send goals with 2D Goal Pose.
 9. Terminal 4 (optional): `ros2 run ugv_navigation gps_waypoints.py` drives the GPS test route.
-10. Continue with Step 13 chunk 5 (see Planned next steps).
+10. Optional, test the Collision Monitor by hand: teleop with `--ros-args -r cmd_vel:=cmd_vel_smoothed`, **hold** keys.
+11. Continue with the test ramp + terrain classifier v1 (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -328,7 +353,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Chunk C: tuning. ~~GPS jitter (process noise)~~ done. Optional leftovers (revisit if Nav2 struggles): obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
-5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17. **Next: (5) Collision Monitor** (add curb lidar, tune). Then: test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
+5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17, ~~(5) Collision Monitor: curb lidar~~ done 2026-11-17 (stop zone + tuning deferred to the real robot model). **Next:** test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
 6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
 
 ## Gotchas so far
@@ -400,4 +425,8 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 - `/usr/bin/env: 'python3\r'` = Windows CRLF line endings. `file <script>` shows "with CRLF line terminators". Fix: `sed -i 's/\r$//' <file>`; `.gitattributes` keeps it LF
 - Python scripts in an `ament_cmake` package: `install(PROGRAMS ... DESTINATION lib/${PROJECT_NAME})` + `chmod +x`. `install(DIRECTORY)` puts them in `share/` → `ros2 run` says no executable found
 - Simple Commander `getFeedback()` returns `None` until the first feedback arrives. Check before using `.current_waypoint`
+- `ros2 node info` only shows current connections. Lazy nodes (e.g. `laserscan_to_pointcloud`) don't subscribe to their input until something subscribes to their output
+- Collision Monitor: `scan` sources ignore height (2D), `pointcloud` sources filter by `min_height`/`max_height`. A tilted lidar needs the pointcloud route
+- Collision Monitor only checks when a command arrives. Testing with teleop: remap to `cmd_vel_smoothed` and **hold** keys
+- Collision Monitor `visualize` output shows in RViz, never in Gazebo
 - Weird `/fromLL` result? Run `/toLL` on (0, 0) and compare to the world origin. Digit typos in lat/lon = km errors (0.01° ≈ 1.1 km)
