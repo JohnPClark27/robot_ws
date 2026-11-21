@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor), 2026-11-21 (semester plan: weekend vs winter break, sensor mounting spec).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -17,7 +17,8 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 **Step 13 chunk 5 done (2026-11-17):** Collision Monitor sees the curb (`laserscan_to_pointcloud` turns `/scan_curb` into `/scan_curb_cloud`, `pointcloud` source with 8 cm height filter) and uses a static footprint. Stop zone + tuning **deferred** until the real robot model.
 **Design item (open): `map` frame tilted ~9.2° from true ENU.** EKF yaw comes from Madgwick (magnetic), so `map` x points magnetic east, not true east. Fine for Nav2 (`/fromLL` uses the same frame). Fix before the OSM overlay or comparing to Gazebo ground truth. See Step 13 chunk 4 notes.
 **Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
-**Next: test ramp in `test_world.sdf` + terrain classifier v1** (Step 13 done except the deferred stop zone). See [Planned next steps](#planned-next-steps).
+**Semester plan (2026-11-21):** ramp + terrain classifier moved to winter break. See [roadmap.md](roadmap.md#semester-plan-2026-11-21).
+**Next: Step 16** (Inventor meshes + sensor mounting spec for ME, [sensor-mounting.md](sensor-mounting.md)), then **Step 14 minimal** (flat OSM campus world), then the GPS-waypoint demo recording.
 
 ## Completed
 
@@ -328,7 +329,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 8. Terminal 3: `ros2 launch ugv_navigation navigation.launch.py` after localization. Wait for `Managed nodes are active`. RViz Fixed Frame `map`, send goals with 2D Goal Pose.
 9. Terminal 4 (optional): `ros2 run ugv_navigation gps_waypoints.py` drives the GPS test route.
 10. Optional, test the Collision Monitor by hand: teleop with `--ros-args -r cmd_vel:=cmd_vel_smoothed`, **hold** keys.
-11. Continue with the test ramp + terrain classifier v1 (see Planned next steps).
+11. Continue with Step 16, then Step 14 minimal (see Planned next steps).
 
 ## Notes for the group demo (2026-10-22)
 
@@ -353,8 +354,12 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Chunk C: tuning. ~~GPS jitter (process noise)~~ done. Optional leftovers (revisit if Nav2 struggles): obstacle wiggle in RViz on direction changes (Madgwick `gain`, wheel `vx` slip), try fusing accel
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
-5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17, ~~(5) Collision Monitor: curb lidar~~ done 2026-11-17 (stop zone + tuning deferred to the real robot model). **Next:** test ramp in `test_world.sdf` + terrain classifier v1 (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
-6. Later: Fusion 360 → URDF for the real robot, then custom PCBs / micro-ROS.
+5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17, ~~(5) Collision Monitor: curb lidar~~ done 2026-11-17 (stop zone + tuning deferred to the real robot model). Ramp + terrain classifier v1 → **winter break** (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
+6. **Step 16 (weekend 2026-11-21):** Inventor meshes (OBJ) → URDF, sensor mounting spec for ME ([sensor-mounting.md](sensor-mounting.md)). Cross-check the EE parts list when it arrives, fill in datasheet sizes.
+7. **Step 14 minimal (weekend):** fix the `map` frame tilt, then a flat OSM campus world. Demo: GPS waypoints along a real sidewalk, screen-recorded.
+8. Weekday evenings: team handoff doc for EE + ME.
+9. Winter break: Step 15 (Route Server, click-to-go), campus elevation, ramp + terrain classifier, Collision Monitor stop zone.
+10. Spring: custom PCBs / micro-ROS, sim → real.
 
 ## Gotchas so far
 

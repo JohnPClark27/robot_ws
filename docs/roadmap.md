@@ -21,6 +21,7 @@ Current progress: [session-resume.md](session-resume.md).
 | Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
 | Motor control | ESP32 running micro-ROS → motor controller | Planned |
 | Drivetrain | **2 tank treads (tracks), one per side, 2 motors per track** (4 motors total), skid-steer | Decided (changed 2026-10-22 from 4 wheels); dimensions TBD |
+| CAD → sim meshes | ME team models in **Autodesk Inventor**. Visual meshes as **OBJ** (or DAE via Blender), collision as simple boxes | Decided 2026-11-21 |
 
 ### Why these choices
 
@@ -86,6 +87,27 @@ Based on measured pace: smooth chunks ~20–40 min, debugging chunks 1–2 h. On
 | Phase 2 hardware (my side, plus waiting on the EE team) | 20–45 |
 | Phase 3 LLM planner (optional) | 4–8 |
 
+## Semester plan (2026-11-21)
+
+End-of-semester milestone is due ~2026-11-26. Goal: a technically and visually impressive demo, plus handoff docs for the EE and ME teams. Phase 1 left (~16–28 h) doesn't fit, so it's split:
+
+**This weekend (2026-11-21/22)**
+1. **Step 16 first (2–4 h):** Inventor meshes into the URDF; sensor mounting spec for the ME team ([sensor-mounting.md](sensor-mounting.md)). Re-place sensors once ME gives real positions.
+2. **Step 14, minimal (4–8 h):** campus world from OSM, **flat ground** (buildings + sidewalks). Elevation only if time is left.
+   - Fix the ~9.2° `map` frame tilt first (~1 h), or the robot looks off the sidewalk in RViz.
+3. **Demo run (1 h):** GPS waypoints (Step 13 chunk 4) along a real campus sidewalk. Looks like click-to-go without the Route Server. **Screen-record it** as a backup for the presentation.
+
+**Weekday evenings:** team handoff doc (what's built, system diagram, ME spec, EE needs from [sim-to-real.md](sim-to-real.md), next steps).
+
+**Winter break**
+- Step 15: Route Server + click-to-go
+- Elevation in the campus world (if skipped)
+- Test ramp + terrain classifier (ramps, steps, drop-offs)
+- Collision Monitor stop zone + tuning (needs the real robot model)
+- Optional EKF tuning leftovers
+
+**Spring:** Phase 2, sim → real with the whole team.
+
 ## Budget (target: under $1000, Pi already covered)
 
 Rough prices. Check current listings before buying.
@@ -117,9 +139,9 @@ Rough prices. Check current listings before buying.
 | 11 | Add GPS (`navsat` sensor) | Done (2026-11-09): `/gps/fix`, campus origin in `<spherical_coordinates>`, RTK-level noise |
 | 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Done (2026-11-15). Local EKF (`odom → base_link`), `mag_relay` + Madgwick absolute yaw, `navsat_transform` (declination +0.1606 verified), `gps_cov_relay`, global EKF (`map → odom`), process noise tuned. Optional tuning leftovers in [session-resume.md](session-resume.md) |
 | 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | In progress. Chunks 1–3 done (2026-11-15): `ugv_navigation`, goals from RViz, avoids box, curb lidar in both costmaps (voxel layers), `base_footprint`. Next: GPS waypoints, Collision Monitor. Design item: drop-off step detector |
-| 14 | Build the campus world (OSM + elevation → mesh → Gazebo) | |
-| 15 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | |
-| 16 | Swap in real dimensions and CAD meshes from Fusion 360; re-place 360° lidar, cameras, tilted curb lidar to match the real mounts. (Moved after the OSM steps on 2026-11-15) | |
+| 14 | Build the campus world (OSM + elevation → mesh → Gazebo) | Weekend 2026-11-21: flat version first. Elevation → winter break |
+| 15 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | **Winter break.** Semester demo uses GPS waypoints instead |
+| 16 | Swap in real dimensions and CAD meshes from Inventor (OBJ); re-place 360° lidar, cameras, tilted curb lidar to match the real mounts. (Moved after the OSM steps on 2026-11-15, moved back first on 2026-11-21 for the ME handoff) | Weekend 2026-11-21. Mounting spec: [sensor-mounting.md](sensor-mounting.md) |
 
 ### Phase 2: Hardware
 
