@@ -416,7 +416,7 @@ collision_monitor:
       type: "polygon"
       action_type: "approach"
       # footprint_topic: "/local_costmap/published_footprint"   # lags while moving
-      footprint: "[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]"
+      points: "[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]"
       time_before_collision: 1.2
       simulation_time_step: 0.1
       min_points: 6
