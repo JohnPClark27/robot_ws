@@ -1,8 +1,17 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+<!-- All sensor visuals use this color so they stand out from the red chassis -->
+    <material name="sensor_blue"><color rgba="0.1 0.4 1.0 1.0"/></material>
+
 <!-- IMU -->
-    <link name="imu_link"/>
+    <link name="imu_link">
+      <visual>
+        <origin xyz="0 0 -0.01"/>   <!-- board sits just under the top lid -->
+        <geometry><box size="0.03 0.03 0.01"/></geometry>
+        <material name="sensor_blue"/>
+      </visual>
+    </link>
 
     <joint name = "imu_joint" type = "fixed">
       <parent link = "base_link"/>
@@ -50,7 +59,13 @@
     <xacro:property name = "gps_h_std_deg" value = "${gps_h_std / 111320}"/>
     <xacro:property name="gps_v_std" value="0.04"/>   <!-- RTK fixed; 4.0 for standard GPS -->
 
-    <link name = "gps_link"/>
+    <link name = "gps_link">
+      <visual>
+        <origin xyz="0 0 0.01"/>    <!-- puck sits on top of the body -->
+        <geometry><cylinder radius="0.03" length="0.02"/></geometry>
+        <material name="sensor_blue"/>
+      </visual>
+    </link>
 
     <joint name = "gps_joint" type = "fixed">
         <parent link = "base_link"/>
@@ -76,19 +91,25 @@
 <!-- 360 Lidar -->
     <xacro:property name="lidar_r" value="0.028"/>
     <xacro:property name="lidar_h" value="0.04"/>
+    <xacro:property name="lidar_riser" value="0.05"/>  <!-- post under the lidar: scan plane must clear the cams + GPS -->
 
     <link name = "lidar_link">
         <visual>
             <geometry>
                 <cylinder radius="${lidar_r}" length="${lidar_h}"/>
             </geometry>
+            <material name="sensor_blue"/>
+        </visual>
+        <visual>   <!-- riser post (gray) -->
+            <origin xyz="0 0 ${-lidar_h/2 - lidar_riser/2}"/>
+            <geometry><cylinder radius="0.015" length="${lidar_riser}"/></geometry>
         </visual>
     </link>
 
     <joint name = "lidar_joint" type = "fixed">
         <parent link = "base_link"/>
         <child link = "lidar_link"/>
-        <origin xyz="0 0 ${body_h/2 + lidar_h/2}"/>
+        <origin xyz="0 0 ${body_h/2 + lidar_riser + lidar_h/2}"/>
     </joint>
 
     <gazebo reference="lidar_link">
@@ -120,7 +141,7 @@
 <!-- Cameras -->
     <xacro:macro name="cam" params="name x y z yaw">
     <link name="${name}_link">
-        <visual><geometry><box size="0.012 0.025 0.024"/></geometry></visual>
+        <visual><geometry><box size="0.012 0.025 0.024"/></geometry><material name="sensor_blue"/></visual>
     </link>
     <joint name="${name}_joint" type="fixed">
         <parent link = "base_link"/>
@@ -161,21 +182,13 @@
 
 
     
-    <xacro:cam name="front_cam"
-           x="${body_l/2 + 0.012/2}"
-           y="0"
-           z="${body_h/2 - 0.024/2}"
-           yaw="0"/>
-
-    <xacro:cam name="rear_cam"
-           x="${-body_l/2 - 0.012/2}"
-           y="0"
-           z="${body_h/2 - 0.024/2}"
-           yaw="${pi}"/>
+    <!-- Two front corner cams on the wedge ridge, pointed out 45 deg (~192 deg total view, ~12 deg overlap) -->
+    <xacro:cam name="front_left_cam"  x="0.29" y="${body_w/2 - 0.02}"  z="${body_h/2 + 0.024/2}" yaw="${pi/4}"/>
+    <xacro:cam name="front_right_cam" x="0.29" y="${-body_w/2 + 0.02}" z="${body_h/2 + 0.024/2}" yaw="${-pi/4}"/>
 
 <!-- Depth camera (curb detection) -->
     <link name="depth_cam_link">
-      <visual><geometry><box size="0.025 0.09 0.025"/></geometry></visual>
+      <visual><geometry><box size="0.025 0.09 0.025"/></geometry><material name="sensor_blue"/></visual>
     </link>
 
     <joint name="depth_cam_joint" type="fixed">
@@ -207,13 +220,14 @@
 
 <!-- Tilted curb lidar -->
     <link name="curb_lidar_link">
-      <visual><geometry><cylinder radius="0.02" length="0.03"/></geometry></visual>
+      <visual><geometry><cylinder radius="0.02" length="0.03"/></geometry><material name="sensor_blue"/></visual>
     </link>
 
     <joint name="curb_lidar_joint" type="fixed">
       <parent link="base_link"/>
       <child link="curb_lidar_link"/>
-      <origin xyz = "${body_l/2 + 0.012} 0 ${body_h/2 - 0.018}" rpy = "0 ${radians(13)} 0"/>
+      <!-- On the wedge face, ~0.25 m above ground; tilt = atan(0.25 / 1.0) so it hits the ground ~1 m ahead -->
+      <origin xyz="0.38 0 0.04" rpy="0 ${radians(14)} 0"/>
     </joint>
 
     <gazebo reference="curb_lidar_link">

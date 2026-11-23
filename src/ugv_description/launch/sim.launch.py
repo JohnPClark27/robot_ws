@@ -6,6 +6,7 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import AppendEnvironmentVariable
 
 
 def generate_launch_description():
@@ -49,10 +50,10 @@ def generate_launch_description():
             #'/model/ugv/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/front_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/front_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            '/rear_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/rear_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/front_left_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/front_left_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/front_right_cam/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/front_right_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
             '/depth_cam@sensor_msgs/msg/Image[gz.msgs.Image',
             '/depth_cam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
@@ -63,5 +64,9 @@ def generate_launch_description():
         output='screen',
     )
 
+    gz_resource_path = AppendEnvironmentVariable(
+        'GZ_SIM_RESOURCE_PATH',
+        os.path.join(get_package_share_directory('ugv_description'), '..'))
+
     
-    return LaunchDescription([rsp,gz, spawn, bridge])
+    return LaunchDescription([gz_resource_path, rsp,gz, spawn, bridge])

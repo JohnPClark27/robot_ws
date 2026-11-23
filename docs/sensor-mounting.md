@@ -1,50 +1,49 @@
 # Sensor mounting spec (for the ME team)
 
-Where each sensor goes on the robot, and why. Written 2026-11-21. **Draft**: positions are from the simulation's placeholder body and will change with the real chassis.
-Related: [roadmap.md](roadmap.md) (decisions), [sim-to-real.md](sim-to-real.md) (EE interface).
+**Draft (2026-11-23):** numbers will change once ME sends the real chassis and wheel dimensions.
 
 ## Reference frame
 
 - Measure every sensor from **one point: the chassis center** (`base_link`).
-- Axes ([REP 103](https://www.ros.org/reps/rep-0103.html)): **x forward, y left, z up**. Meters and degrees.
+- Axes: **x forward, y left, z up**. Meters and degrees.
 - `base_footprint` = the ground directly under the chassis center (z = 0). Heights below are from the ground.
 
-## Current sim positions (placeholder body 0.60 × 0.40 × 0.20 m, top at 0.25 m)
+## Current sim positions (estimated chassis, 2026-11-23)
 
-Source: [`ugv_sensors.xacro`](../src/ugv_description/urdf/ugv_sensors.xacro).
+Source: [`ugv_sensors.xacro`](../src/ugv_description/urdf/ugv_sensors.xacro). Body from `chassis.obj`: main box 0.56 × 0.41 × 0.33 m plus a 0.25 m sloped wedge on the front. Chassis center (`base_link`) is the middle of the main box, 0.21 m above the ground. Body top at 0.38 m.
 
-| Sensor | Where | x (m) | z above ground (m) | Angle |
-|---|---|---|---|---|
-| 360° lidar | Top center | 0 | 0.27 (scan plane) | Level |
-| Curb lidar (2D, tilted) | Front edge, centered | +0.31 | 0.23 | 13° down |
-| Front camera | Front edge, centered | +0.31 | 0.24 | Level, facing forward |
-| Rear camera | Rear edge, centered | −0.31 | 0.24 | Level, facing back |
-| GPS antenna | Top, behind center | −0.15 | 0.25 | Facing up |
-| IMU + magnetometer | Center | 0 | 0.25 | Aligned with robot axes |
+**Estimate:** the wheels (6 × 0.20 m diameter, ~5 cm ground clearance) are guesses. If the real ride height changes, every height below moves with it, and the curb lidar tilt must be recalculated.
 
-All sensors are at y = 0 (centered left/right).
+| Sensor | Where | x (m) | y (m) | z above ground (m) | Angle |
+|---|---|---|---|---|---|
+| 360° lidar | Top center, on a 5 cm riser | 0 | 0 | 0.45 (scan plane) | Level |
+| Curb lidar (2D, tilted) | Wedge face, centered | +0.38 | 0 | 0.25 | 14° down |
+| Front-left camera | Top of wedge ridge, left corner | +0.29 | +0.185 | 0.39 | Level, turned 45° left |
+| Front-right camera | Top of wedge ridge, right corner | +0.29 | −0.185 | 0.39 | Level, turned 45° right |
+| GPS antenna | Top, behind center | −0.14 | 0 | 0.38 (base of antenna) | Facing up |
+| IMU + magnetometer | Center, just under the top lid | 0 | 0 | ~0.37 | Aligned with robot axes |
 
 ## Mounting rules (these matter more than the numbers)
 
-- **360° lidar:** highest thing on the robot. Nothing at its height for a full 360° (no posts, mast, or antenna in the scan plane).
-- **Curb lidar:** must hit the ground **~1 m ahead**. Distance ahead = height ÷ tan(tilt). If the height changes, change the tilt to keep ~1 m. Clear view ±60° forward and down. **Mount rigidly:** 1° of tilt error moves the line ~0.1 m.
-- **Cameras:** clear view forward / back, nothing in the lower part of the frame (wide lens, ~102° horizontal).
-- **GPS antenna:** clear sky view, on a ground plane if the antenna needs one, not under or next to the lidar.
-- **IMU + magnetometer:** near the center, rigid, axes lined up with the robot. **Keep away from motors, battery, and high-current wires.** They distort the compass and the heading.
+- 360° lidar: highest point on the robot, on a 5 cm riser. **Nothing in the scan plane** (0.45 m) for a full 360°: no mast, antenna or bracket, or the lidar sees the robot as an obstacle.
+- Two front cameras, one on each corner, pointed out at 45°. Clear view with nothing in the lower part of the frame (wide lens, ~102° horizontal).
+- GPS: puck on top, clear view of the sky, not right next to the lidar. Ground plane under it if the antenna needs one.
+- IMU + magnetometer: near the middle, rigid, axes lined up with the robot. **Keep away from motors, battery and high-current wires**: they distort the compass and the heading.
+- Curb lidar: must hit the ground ~1 m in front of it. **Tilt = atan(height ÷ 1 m)**: if the height changes, change the tilt. Clear view ±60° forward and down. **Mount rigidly:** 1° of tilt error moves the line ~10 cm.
 
 ## What we need back from ME
 
 - Final x / y / z and angle of every sensor, from the chassis center.
-- Overall robot size (L × W × H), track size and spacing, mass estimate.
-- Meshes: chassis and tracks as **separate** files (see below).
+- Real wheel size (diameter, width) and axle positions, ground clearance.
+- Overall robot size (L × W × H) and mass estimate.
 
-## Part dimensions (fill in when the EE parts list is final)
+## Part dimensions
 
 | Part | Model | Size (L × W × H mm) | Mounting holes | Weight | Sensing point (scan plane / lens center) | Datasheet |
 |---|---|---|---|---|---|---|
 | 360° lidar | TBD | | | | | |
 | Curb lidar | TBD | | | | | |
-| Cameras (×2) | Pi Camera Module 3 Wide? | | | | | |
+| Cameras (×2, front corners) | Pi Camera Module 3 Wide? | | | | | |
 | GPS + antenna | TBD | | | | | |
 | IMU | TBD | | | | | |
 
@@ -55,11 +54,3 @@ All sensors are at y = 0 (centered left/right).
 - GPS: **RTK-capable** (sim uses ~2 cm accuracy; standard GPS is ~2 m)
 - IMU: **9-axis with magnetometer** (heading depends on it)
 - Cameras: CSI, wide angle
-
-## CAD → sim meshes
-
-- **Visual:** OBJ exported from Inventor. If colors are lost or the file is huge, clean up in Blender (Decimate) and export OBJ or DAE.
-- **Collision:** simple boxes / cylinders, not the mesh (detailed collision meshes slow Gazebo down).
-- **Units:** STL/OBJ have no units, Inventor exports in mm. URDF uses meters → `scale="0.001 0.001 0.001"`.
-- **Origin:** put the mesh origin at the chassis center so it lines up with `base_link`.
-- Docs: [URDF visual model](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/Building-a-Visual-Robot-Model-with-URDF-from-Scratch.html), [collision + physical properties](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/Adding-Physical-and-Collision-Properties-to-a-URDF-Model.html)

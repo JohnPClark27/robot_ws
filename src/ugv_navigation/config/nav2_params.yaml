@@ -196,7 +196,7 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      footprint: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"
+      footprint: "[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]"
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -243,7 +243,7 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      footprint: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"      
+      footprint: "[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]"    
       resolution: 0.05
       rolling_window: true          # add: grid moves with the robot
       width: 50                     # add: 50 × 50 m around the robot
@@ -416,7 +416,7 @@ collision_monitor:
       type: "polygon"
       action_type: "approach"
       # footprint_topic: "/local_costmap/published_footprint"   # lags while moving
-      points: "[[0.30, 0.28], [0.30, -0.28], [-0.30, -0.28], [-0.30, 0.28]]"
+      footprint: "[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]"
       time_before_collision: 1.2
       simulation_time_step: 0.1
       min_points: 6

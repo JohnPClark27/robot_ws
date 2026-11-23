@@ -2,15 +2,15 @@
 <robot name="ugv" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!-- Placeholder dimensions (meters, kg). Replace with real ones later. -->
-  <xacro:property name="body_l" value="0.60"/>
-  <xacro:property name="body_w" value="0.40"/>
-  <xacro:property name="body_h" value="0.20"/>
+  <xacro:property name="body_l" value="0.56"/>
+  <xacro:property name="body_w" value="0.41"/>
+  <xacro:property name="body_h" value="0.33"/>
   <xacro:property name="body_m" value="15.0"/>
   <xacro:property name="wheel_r" value="0.10"/>
   <xacro:property name="wheel_w" value="0.08"/>
   <xacro:property name="wheel_m" value="1.0"/>
   <xacro:property name="wheel_x_spacing" value="0.22"/>  <!-- front/rear wheel distance from center -->
-  <xacro:property name="wheel_z" value="-0.05"/>         <!-- wheel center below body center -->
+  <xacro:property name="wheel_z" value="-0.114"/>         <!-- wheel center below body center -->
   
   <link name="base_footprint"/>
 
@@ -22,8 +22,9 @@
 
   <link name="base_link">
     <visual>
+      <origin xyz="-0.066 0 -0.164" rpy="${pi/2} 0 ${pi}"/>
       <geometry>
-        <box size="${body_l} ${body_w} ${body_h}"/>
+        <mesh filename="package://ugv_description/meshes/chassis.obj"/>
       </geometry>
     </visual>
     <collision>
