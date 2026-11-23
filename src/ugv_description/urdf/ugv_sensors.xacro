@@ -186,7 +186,8 @@
     <xacro:cam name="front_left_cam"  x="0.29" y="${body_w/2 - 0.02}"  z="${body_h/2 + 0.024/2}" yaw="${pi/4}"/>
     <xacro:cam name="front_right_cam" x="0.29" y="${-body_w/2 + 0.02}" z="${body_h/2 + 0.024/2}" yaw="${-pi/4}"/>
 
-<!-- Depth camera (curb detection) -->
+<!-- Depth camera: DISABLED 2026-11-23 (comparison only, not on the EE parts list, sat inside the wedge).
+     Uncomment the block below and the two depth_cam bridge lines in sim.launch.py to bring it back.
     <link name="depth_cam_link">
       <visual><geometry><box size="0.025 0.09 0.025"/></geometry><material name="sensor_blue"/></visual>
     </link>
@@ -217,6 +218,7 @@
         </camera>
       </sensor>
     </gazebo>
+-->
 
 <!-- Tilted curb lidar -->
     <link name="curb_lidar_link">
