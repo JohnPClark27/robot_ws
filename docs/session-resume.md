@@ -462,3 +462,6 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 - Gazebo turns `package://pkg/...` into `model://pkg/...` and looks for `pkg/` inside each `GZ_SIM_RESOURCE_PATH` folder → append the package's share dir **parent** (`<share>/..`)
 - After moving or adding any sensor: check no sensor sees the robot's own body (run with nothing around, look at `/scan`). A self-hit moves with the robot → Collision Monitor slows to 0, costmap marks the robot's own cells
 - XML comments can't contain `--` or another comment. Comment out a block below its header comment
+
+
+- Note as of 11/24/2026: Ground clearance around 4 inches
