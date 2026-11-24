@@ -19,6 +19,12 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 **Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
 **Semester plan (2026-11-21):** ramp + terrain classifier moved to winter break. See [roadmap.md](roadmap.md#semester-plan-2026-11-21).
 **Step 16 part 1 done (2026-11-23):** Inventor chassis mesh (red) in the URDF, sensors re-placed for the real chassis (blue), footprint includes the front wedge, ME spec updated ([sensor-mounting.md](sensor-mounting.md)). Wheel numbers are **estimates** until ME sends real ones.
+**Open issue (2026-11-24): Collision Monitor barely slows the robot, if at all.** Seen after Step 16 (new footprint, `footprint:` → `points:` fix on `FootprintApproach`). Not debugged yet. Things to check first:
+  - The `FootprintApproach` polygon in RViz (`visualize: True`): does it reach the wedge tip (+0.54)? Was the `points:` fix rebuilt (`ugv_navigation`)?
+  - `collision_monitor` startup log for polygon or parameter errors
+  - Does it see points at all? `ros2 topic hz /scan_curb_cloud`; obstacle height vs `min_height` (scan 0.15, curb cloud 0.08). The 360° lidar is now at 0.45 m, so it misses short obstacles
+  - `min_points: 6` and `time_before_collision: 1.2` may be too lax for the larger footprint
+  - Command chain: Nav2 → `cmd_vel_smoothed` → Collision Monitor → `cmd_vel`. Teleop tests must publish to `cmd_vel_smoothed` and **hold** keys
 **Next:** fix the `map` frame tilt, then **Step 14 minimal** (flat OSM campus world), then the GPS-waypoint demo recording. Milestone ~2026-11-26.
 
 ## Completed
@@ -291,7 +297,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
   - All sensor visuals use `sensor_blue`; IMU (board under the lid) and GPS (puck on top) got visuals
   - Gazebo finds the mesh via `AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', <share>/..)` in `sim.launch.py`
   - Nav2 footprint (both costmaps + Collision Monitor `FootprintApproach`): `[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]`. GPS waypoint run OK
-  - Still open: real wheel numbers (→ ride height → curb lidar tilt), collision box doesn't include the wedge, Collision Monitor stop zone
+  - Still open: real wheel numbers (→ ride height → curb lidar tilt), collision box doesn't include the wedge, Collision Monitor stop zone; Collision Monitor barely slows (open issue in Where I am)
 
 ## Frames (`ugv`)
 
