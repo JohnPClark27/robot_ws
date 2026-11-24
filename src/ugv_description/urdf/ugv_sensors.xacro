@@ -4,6 +4,15 @@
 <!-- All sensor visuals use this color so they stand out from the red chassis -->
     <material name="sensor_blue"><color rgba="0.1 0.4 1.0 1.0"/></material>
 
+<!-- ME datum: center of the rear bottom edge of the main body. Reference point for docs/sensor-mounting.md.
+     No sensor uses it; it only shows the point in RViz (TF display). Rear face x and bottom z read from chassis.obj. -->
+    <link name="mount_datum"/>
+    <joint name="mount_datum_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="mount_datum"/>
+      <origin xyz="-0.2797 0 -0.1652"/>
+    </joint>
+
 <!-- IMU -->
     <link name="imu_link">
       <visual>
