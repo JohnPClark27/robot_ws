@@ -1,0 +1,277 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1090" width="1600" height="1090" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="aPhys" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/></marker>
+    <marker id="aRos" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1d4ed8"/></marker>
+    <marker id="aPow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/></marker>
+    <marker id="aSafe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    <style>
+      .t  { font-size: 14px; font-weight: bold; fill: #0f172a; }
+      .s  { font-size: 11px; fill: #334155; }
+      .h  { font-size: 16px; font-weight: bold; fill: #0f172a; }
+      .lp { font-size: 10.5px; fill: #c2410c; font-weight: bold; }
+      .lr { font-size: 10px; fill: #1d4ed8; }
+      .lw { font-size: 10px; fill: #4b5563; }
+      .ls { font-size: 10px; fill: #dc2626; }
+      .hw   { fill: #f1f5f9; stroke: #475569; stroke-width: 1.5; }
+      .ext  { fill: #ffffff; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 6 4; }
+      .node { fill: #ffffff; stroke: #1d4ed8; stroke-width: 1.5; }
+      .opt  { fill: #ffffff; stroke: #64748b; stroke-width: 1.2; stroke-dasharray: 5 4; }
+      .phys { stroke: #c2410c; stroke-width: 2; fill: none; }
+      .ros  { stroke: #1d4ed8; stroke-width: 2; fill: none; }
+      .pow  { stroke: #6b7280; stroke-width: 3; fill: none; }
+      .safe { stroke: #dc2626; stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1090" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="20" y="34" font-size="22" font-weight="bold" fill="#0f172a">UGV system diagram: hardware, data flow and interfaces (target real robot)</text>
+  <text x="20" y="56" class="s" font-size="13">Orange = physical link / protocol · Blue = ROS 2 topic (message type · rate) · Gray = power · Red dashed = hardware safety path</text>
+
+  <!-- ===================== Hardware column ===================== -->
+  <text x="20" y="96" class="h">Hardware</text>
+
+  <rect x="20" y="110" width="210" height="50" rx="6" class="hw"/>
+  <text x="32" y="131" class="t">360° lidar (2D)</text>
+  <text x="32" y="149" class="s">≥ 12 m range, top of robot</text>
+
+  <rect x="20" y="175" width="210" height="50" rx="6" class="hw"/>
+  <text x="32" y="196" class="t">Curb lidar (2D)</text>
+  <text x="32" y="214" class="s">tilted 14° down, wedge face</text>
+
+  <rect x="20" y="300" width="210" height="60" rx="6" class="hw"/>
+  <text x="32" y="323" class="t">2 × wide cameras</text>
+  <text x="32" y="342" class="s">front corners, ±45°, ~102° FOV</text>
+
+  <rect x="20" y="400" width="210" height="56" rx="6" class="hw"/>
+  <text x="32" y="422" class="t">RTK GPS + antenna</text>
+  <text x="32" y="441" class="s">~2 cm with corrections</text>
+
+  <rect x="20" y="480" width="210" height="50" rx="6" class="ext"/>
+  <text x="32" y="501" class="t">NTRIP caster</text>
+  <text x="32" y="519" class="s">internet service (RTK corrections)</text>
+
+  <rect x="20" y="590" width="210" height="56" rx="6" class="hw"/>
+  <text x="32" y="612" class="t">IMU + magnetometer</text>
+  <text x="32" y="631" class="s">9-axis, away from motors/battery</text>
+
+  <rect x="20" y="670" width="210" height="56" rx="6" class="hw"/>
+  <text x="32" y="692" class="t">Wheel encoders</text>
+  <text x="32" y="711" class="s">one per drive motor</text>
+
+  <rect x="20" y="750" width="210" height="56" rx="6" class="hw"/>
+  <text x="32" y="772" class="t">Bump switches + E-stop</text>
+  <text x="32" y="791" class="s">safety inputs</text>
+
+  <rect x="20" y="850" width="210" height="56" rx="6" class="hw"/>
+  <text x="32" y="872" class="t">Motor drivers</text>
+  <text x="32" y="891" class="s">motor voltage from battery</text>
+
+  <rect x="60" y="935" width="170" height="46" rx="6" class="hw"/>
+  <text x="72" y="963" class="t">Drive motors</text>
+
+  <rect x="20" y="1010" width="210" height="50" rx="6" class="hw"/>
+  <text x="32" y="1031" class="t">Battery</text>
+  <text x="32" y="1049" class="s">main power</text>
+
+  <!-- ===================== ESP32 ===================== -->
+  <rect x="300" y="580" width="220" height="310" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+  <text x="314" y="606" class="h">ESP32 firmware</text>
+  <text x="314" y="624" class="s" font-style="italic">micro-ROS client (EE team)</text>
+  <text x="314" y="652" class="s">• reads IMU + mag (I²C)</text>
+  <text x="314" y="672" class="s">• counts encoders → odometry</text>
+  <text x="314" y="692" class="s">• PWM to motor drivers</text>
+  <text x="314" y="712" class="s">• watchdog: no /cmd_vel</text>
+  <text x="314" y="726" class="s">   for 0.5 s → motors stop</text>
+  <text x="314" y="746" class="s">• bump / E-stop → stop</text>
+  <text x="314" y="766" class="s">• time sync with the agent</text>
+  <text x="314" y="786" class="s">• publishes covariances,</text>
+  <text x="314" y="800" class="s">   no TF</text>
+
+  <!-- ===================== Raspberry Pi ===================== -->
+  <rect x="620" y="70" width="730" height="900" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="640" y="96" class="h">Raspberry Pi 5 · ROS 2 Jazzy (Docker)</text>
+  <text x="1335" y="96" class="s" text-anchor="end">nodes talk over ROS 2 (DDS) on the Pi</text>
+
+  <!-- Drivers column -->
+  <rect x="645" y="112" width="210" height="110" rx="6" class="node"/>
+  <text x="657" y="136" class="t">Lidar drivers × 2</text>
+  <text x="657" y="155" class="s">e.g. rplidar_ros / ldlidar</text>
+  <text x="657" y="173" class="s">frame_id: lidar_link,</text>
+  <text x="657" y="189" class="s">curb_lidar_link</text>
+
+  <rect x="645" y="300" width="210" height="60" rx="6" class="node"/>
+  <text x="657" y="323" class="t">camera_ros</text>
+  <text x="657" y="342" class="s">libcamera, 2 instances</text>
+
+  <rect x="645" y="400" width="210" height="56" rx="6" class="node"/>
+  <text x="657" y="422" class="t">u-blox GPS driver</text>
+  <text x="657" y="441" class="s">frame_id: gps_link</text>
+
+  <rect x="645" y="480" width="210" height="50" rx="6" class="node"/>
+  <text x="657" y="501" class="t">NTRIP client</text>
+  <text x="657" y="519" class="s">needs Wi-Fi / hotspot</text>
+
+  <rect x="645" y="640" width="210" height="80" rx="6" class="node"/>
+  <text x="657" y="662" class="t">micro_ros_agent</text>
+  <text x="657" y="680" class="s">bridges ESP32 ↔ ROS 2</text>
+  <text x="657" y="696" class="s">also /bumper, /estop (Bool),</text>
+  <text x="657" y="711" class="s">/battery (BatteryState)</text>
+
+  <!-- Nav2 -->
+  <rect x="990" y="112" width="335" height="160" rx="6" class="node"/>
+  <text x="1002" y="136" class="t">Nav2 (navigation)</text>
+  <text x="1002" y="160" class="s">• laserscan_to_pointcloud → /scan_curb_cloud</text>
+  <text x="1002" y="180" class="s">• global + local costmaps (voxel layers)</text>
+  <text x="1002" y="200" class="s">• planner → controller → velocity_smoother</text>
+  <text x="1002" y="220" class="s">• collision_monitor (/scan + curb cloud)</text>
+  <text x="1012" y="236" class="s">  → /cmd_vel</text>
+  <text x="1002" y="258" class="s">• footprint includes the front wedge</text>
+
+  <!-- Image consumers -->
+  <rect x="990" y="295" width="140" height="70" rx="6" class="opt"/>
+  <text x="1000" y="315" class="t" style="font-size:12.5px">Image users</text>
+  <text x="1000" y="333" class="s">RViz view, recording,</text>
+  <text x="1000" y="349" class="s">future terrain classifier</text>
+
+  <!-- Localization -->
+  <rect x="990" y="410" width="335" height="310" rx="6" class="node"/>
+  <text x="1002" y="434" class="t">Localization (robot_localization)</text>
+  <text x="1002" y="460" class="s" font-weight="bold">Madgwick filter</text>
+  <text x="1002" y="476" class="s">/imu/data_raw + /imu/mag → /imu/data</text>
+  <text x="1002" y="490" class="s">(absolute heading from the compass)</text>
+  <text x="1002" y="518" class="s" font-weight="bold">Local EKF</text>
+  <text x="1002" y="534" class="s">/wheel/odom + /imu/data → /odometry/filtered</text>
+  <text x="1002" y="548" class="s">TF odom → base_footprint (smooth, drifts)</text>
+  <text x="1002" y="576" class="s" font-weight="bold">navsat_transform</text>
+  <text x="1002" y="592" class="s">/gps/fix + /imu/data → /odometry/gps</text>
+  <text x="1002" y="606" class="s">(+ /fromLL service: lat/lon → map x, y)</text>
+  <text x="1002" y="634" class="s" font-weight="bold">Global EKF</text>
+  <text x="1002" y="650" class="s">same inputs + /odometry/gps → /odometry/global</text>
+  <text x="1002" y="664" class="s">TF map → odom (GPS-corrected, no drift)</text>
+  <text x="1002" y="692" class="s" font-style="italic">EKF = Extended Kalman Filter: fuses noisy</text>
+  <text x="1002" y="706" class="s" font-style="italic">sensors into one best position estimate</text>
+
+  <!-- RSP + mission + phase 3 -->
+  <rect x="990" y="780" width="170" height="80" rx="6" class="node"/>
+  <text x="1000" y="802" class="t" style="font-size:12px">robot_state_publisher</text>
+  <text x="1000" y="820" class="s">URDF → /tf_static</text>
+  <text x="1000" y="836" class="s">(where each sensor is</text>
+  <text x="1000" y="850" class="s">mounted on the robot)</text>
+
+  <rect x="1172" y="780" width="153" height="80" rx="6" class="node"/>
+  <text x="1182" y="802" class="t" style="font-size:12.5px">gps_waypoints.py</text>
+  <text x="1182" y="820" class="s">lat/lon route →</text>
+  <text x="1182" y="836" class="s">/follow_gps_waypoints</text>
+  <text x="1182" y="850" class="s">(Nav2 action)</text>
+
+  <rect x="990" y="880" width="335" height="70" rx="6" class="opt"/>
+  <text x="1002" y="902" class="t" style="font-size:12px">Phase 3 (optional): local LLM goal planner</text>
+  <text x="1002" y="920" class="s">picks destinations and sends them as goals.</text>
+  <text x="1002" y="936" class="s">Not in the realtime control loop.</text>
+
+  <!-- ===================== Right column ===================== -->
+  <rect x="1385" y="112" width="200" height="88" rx="6" class="hw"/>
+  <text x="1397" y="136" class="t">Laptop · RViz2</text>
+  <text x="1397" y="155" class="s">monitor sensors, map, path</text>
+  <text x="1397" y="171" class="s">send goals</text>
+  <text x="1397" y="189" class="lr">Wi-Fi · ROS 2 DDS</text>
+
+  <rect x="1385" y="240" width="200" height="200" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1397" y="262" class="t">In simulation today</text>
+  <text x="1397" y="284" class="s">Gazebo + ros_gz_bridge stand in</text>
+  <text x="1397" y="300" class="s">for the hardware column, the</text>
+  <text x="1397" y="316" class="s">ESP32 and the Pi's drivers.</text>
+  <text x="1397" y="340" class="s">Sim-only glue nodes:</text>
+  <text x="1397" y="356" class="s">odom_cov_relay, gps_cov_relay,</text>
+  <text x="1397" y="372" class="s">mag_relay (removed on the</text>
+  <text x="1397" y="388" class="s">real robot).</text>
+  <text x="1397" y="412" class="s">Localization + Nav2 run</text>
+  <text x="1397" y="428" class="s">unchanged on the real robot.</text>
+
+  <!-- Legend -->
+  <rect x="1385" y="800" width="200" height="150" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1397" y="822" class="t">Legend</text>
+  <line x1="1397" y1="844" x2="1447" y2="844" class="phys" marker-end="url(#aPhys)"/>
+  <text x="1455" y="848" class="s">physical link / protocol</text>
+  <line x1="1397" y1="870" x2="1447" y2="870" class="ros" marker-end="url(#aRos)"/>
+  <text x="1455" y="874" class="s">ROS 2 topic</text>
+  <line x1="1397" y1="896" x2="1447" y2="896" class="pow" marker-end="url(#aPow)"/>
+  <text x="1455" y="900" class="s">power</text>
+  <line x1="1397" y1="922" x2="1447" y2="922" class="safe" marker-end="url(#aSafe)"/>
+  <text x="1455" y="926" class="s">hardware safety cut</text>
+  <rect x="1397" y="934" width="16" height="10" class="opt"/>
+  <text x="1420" y="943" class="s">optional / future</text>
+
+  <!-- ===================== Physical links ===================== -->
+  <line x1="230" y1="135" x2="643" y2="135" class="phys" marker-end="url(#aPhys)"/>
+  <text x="437" y="129" class="lp" text-anchor="middle">USB (serial)</text>
+  <line x1="230" y1="200" x2="643" y2="200" class="phys" marker-end="url(#aPhys)"/>
+  <text x="437" y="194" class="lp" text-anchor="middle">USB (serial)</text>
+  <line x1="230" y1="330" x2="643" y2="330" class="phys" marker-end="url(#aPhys)"/>
+  <text x="437" y="324" class="lp" text-anchor="middle">CSI-2 ribbon cable × 2</text>
+  <line x1="230" y1="428" x2="643" y2="428" class="phys" marker-end="url(#aPhys)"/>
+  <text x="437" y="422" class="lp" text-anchor="middle">USB · UBX / NMEA</text>
+  <line x1="230" y1="505" x2="643" y2="505" class="phys" stroke-dasharray="6 4" marker-end="url(#aPhys)"/>
+  <text x="437" y="499" class="lp" text-anchor="middle">internet (Wi-Fi / LTE) · RTCM3</text>
+
+  <line x1="230" y1="618" x2="298" y2="618" class="phys" marker-end="url(#aPhys)"/>
+  <text x="265" y="612" class="lp" text-anchor="middle">I²C</text>
+  <line x1="230" y1="698" x2="298" y2="698" class="phys" marker-end="url(#aPhys)"/>
+  <text x="265" y="692" class="lp" text-anchor="middle">GPIO A/B</text>
+  <line x1="230" y1="778" x2="298" y2="778" class="phys" marker-end="url(#aPhys)"/>
+  <text x="265" y="772" class="lp" text-anchor="middle">GPIO</text>
+  <line x1="300" y1="872" x2="232" y2="872" class="phys" marker-end="url(#aPhys)"/>
+  <text x="267" y="864" class="lp" text-anchor="middle">PWM + DIR</text>
+  <line x1="145" y1="906" x2="145" y2="933" class="phys" marker-end="url(#aPhys)"/>
+
+  <line x1="522" y1="680" x2="643" y2="680" class="phys" marker-start="url(#aPhys)" marker-end="url(#aPhys)"/>
+  <text x="582" y="666" class="lp" text-anchor="middle">USB serial</text>
+  <text x="582" y="698" class="lp" text-anchor="middle">micro-ROS</text>
+  <text x="582" y="711" class="lp" text-anchor="middle">(XRCE-DDS)</text>
+
+  <!-- Safety -->
+  <line x1="212" y1="806" x2="212" y2="848" class="safe" marker-end="url(#aSafe)"/>
+  <text x="204" y="831" class="ls" text-anchor="end">E-stop cuts motor power</text>
+
+  <!-- Power -->
+  <polyline points="40,1010 40,908" class="pow" marker-end="url(#aPow)"/>
+  <polyline points="230,1035 700,1035 700,972" class="pow" marker-end="url(#aPow)"/>
+  <polyline points="410,1035 410,892" class="pow" marker-end="url(#aPow)"/>
+  <text x="560" y="1027" class="lw" text-anchor="middle">5 V / 5 A buck → Pi (USB-C)</text>
+  <text x="418" y="960" class="lw">5 V → ESP32</text>
+
+  <!-- ===================== ROS 2 topics ===================== -->
+  <line x1="855" y1="150" x2="988" y2="150" class="ros" marker-end="url(#aRos)"/>
+  <text x="922" y="143" class="lr" text-anchor="middle">/scan, /scan_curb</text>
+  <text x="922" y="165" class="lr" text-anchor="middle">LaserScan · 10 Hz</text>
+
+  <line x1="855" y1="330" x2="988" y2="330" class="ros" marker-end="url(#aRos)"/>
+  <text x="922" y="309" class="lr" text-anchor="middle">/front_left_cam,</text>
+  <text x="922" y="322" class="lr" text-anchor="middle">/front_right_cam</text>
+  <text x="922" y="345" class="lr" text-anchor="middle">Image · 15 Hz</text>
+
+  <line x1="855" y1="428" x2="988" y2="428" class="ros" marker-end="url(#aRos)"/>
+  <text x="922" y="421" class="lr" text-anchor="middle">/gps/fix</text>
+  <text x="922" y="443" class="lr" text-anchor="middle">NavSatFix · 10 Hz</text>
+
+  <line x1="750" y1="480" x2="750" y2="458" class="ros" marker-end="url(#aRos)"/>
+  <text x="758" y="473" class="lr">/rtcm (RTCM3)</text>
+
+  <line x1="855" y1="680" x2="988" y2="680" class="ros" marker-end="url(#aRos)"/>
+  <text x="922" y="634" class="lr" text-anchor="middle">/wheel/odom · Odometry</text>
+  <text x="922" y="648" class="lr" text-anchor="middle">/imu/data_raw · Imu</text>
+  <text x="922" y="662" class="lr" text-anchor="middle">/imu/mag · MagneticField</text>
+  <text x="922" y="696" class="lr" text-anchor="middle">30–100 Hz</text>
+
+  <line x1="1160" y1="410" x2="1160" y2="274" class="ros" marker-end="url(#aRos)"/>
+  <text x="1168" y="372" class="lr">/odometry/filtered</text>
+  <text x="1168" y="386" class="lr">+ TF map → odom →</text>
+  <text x="1168" y="400" class="lr">base_footprint</text>
+
+  <polyline points="1325,240 1338,240 1338,745 750,745 750,722" class="ros" marker-end="url(#aRos)"/>
+  <text x="1044" y="739" class="lr" text-anchor="middle">/cmd_vel · Twist (linear.x, angular.z) · 10–20 Hz → ESP32</text>
+
+  <line x1="1350" y1="150" x2="1383" y2="150" class="ros" marker-start="url(#aRos)" marker-end="url(#aRos)"/>
+</svg>
