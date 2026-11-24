@@ -1,23 +1,25 @@
 <?xml version="1.0"?>
 <robot name="ugv" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- Placeholder dimensions (meters, kg). Replace with real ones later. -->
+  <!-- Body from chassis.obj (inches in CAD). Wheels from ME 2026-11-24. Meters, kg. -->
   <xacro:property name="body_l" value="0.56"/>
   <xacro:property name="body_w" value="0.41"/>
   <xacro:property name="body_h" value="0.33"/>
   <xacro:property name="body_m" value="15.0"/>
-  <xacro:property name="wheel_r" value="0.10"/>
-  <xacro:property name="wheel_w" value="0.08"/>
+  <xacro:property name="wheel_r" value="0.0635"/>        <!-- 5 in diameter (ME) -->
+  <xacro:property name="wheel_outer_w" value="0.508"/>  <!-- 20 in, outside of left wheel to outside of right wheel (ME) -->
+  <xacro:property name="wheel_w" value="${wheel_outer_w/2 - body_w/2}"/>  <!-- 0.049: assumes wheels sit right against the body sides -->
   <xacro:property name="wheel_m" value="1.0"/>
-  <xacro:property name="wheel_x_spacing" value="0.22"/>  <!-- front/rear wheel distance from center -->
-  <xacro:property name="wheel_z" value="-0.114"/>         <!-- wheel center below body center -->
+  <xacro:property name="wheel_x_spacing" value="0.22"/>  <!-- front/rear wheel distance from center. TODO: estimate, ask ME -->
+  <xacro:property name="ground_clearance" value="0.05"/> <!-- ground to body bottom. TODO: estimate, ask ME -->
+  <xacro:property name="wheel_z" value="${wheel_r - ground_clearance - body_h/2}"/>  <!-- axle relative to base_link (-0.1515) -->
   
   <link name="base_footprint"/>
 
   <joint name="base_footprint_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
-    <origin xyz="0 0 ${-wheel_z + wheel_r}"/>   <!-- 0.15: base_link above the ground -->
+    <origin xyz="0 0 ${-wheel_z + wheel_r}"/>   <!-- 0.215: base_link above the ground -->
   </joint>
 
   <link name="base_link">

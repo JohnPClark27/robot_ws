@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor), 2026-11-21 (semester plan: weekend vs winter break, sensor mounting spec), 2026-11-23 (Step 16 part 1: chassis mesh, sensor layout for the real chassis, footprint, ME spec).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor), 2026-11-21 (semester plan: weekend vs winter break, sensor mounting spec), 2026-11-23 (Step 16 part 1: chassis mesh, sensor layout for the real chassis, footprint, ME spec), 2026-11-24 (real wheel size from ME).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -18,7 +18,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 **Design item (open): `map` frame tilted ~9.2° from true ENU.** EKF yaw comes from Madgwick (magnetic), so `map` x points magnetic east, not true east. Fine for Nav2 (`/fromLL` uses the same frame). Fix before the OSM overlay or comparing to Gazebo ground truth. See Step 13 chunk 4 notes.
 **Design item (open): terrain classifier.** Today's height filter flags upward ramps as obstacles and can't see drop-offs. Plan: a node that labels the curb-lidar line (flat / ramp / small step / ledge / drop) and marks only unsafe **edges**, small steps get a medium cost. See Step 13 notes.
 **Semester plan (2026-11-21):** ramp + terrain classifier moved to winter break. See [roadmap.md](roadmap.md#semester-plan-2026-11-21).
-**Step 16 part 1 done (2026-11-23):** Inventor chassis mesh (red) in the URDF, sensors re-placed for the real chassis (blue), footprint includes the front wedge, ME spec updated ([sensor-mounting.md](sensor-mounting.md)). Wheel numbers are **estimates** until ME sends real ones.
+**Step 16 part 1 done (2026-11-23):** Inventor chassis mesh (red) in the URDF, sensors re-placed for the real chassis (blue), footprint includes the front wedge, ME spec updated ([sensor-mounting.md](sensor-mounting.md)). **Wheels from ME (2026-11-24):** 5 in diameter, 20 in outside to outside → `wheel_r` 0.0635, `wheel_w` 0.049 (derived), wheel_separation 0.459. Ground clearance (5 cm) and axle spacing (0.22 m) are still estimates; sensor heights didn't change. **Risk:** a 5 in wheel climbs roughly ≤ its 6 cm radius, well short of a 10–15 cm curb. Bring to ME.
 **Open issue (2026-11-24): Collision Monitor barely slows the robot, if at all.** Seen after Step 16 (new footprint, `footprint:` → `points:` fix on `FootprintApproach`). Not debugged yet. Things to check first:
   - The `FootprintApproach` polygon in RViz (`visualize: True`): does it reach the wedge tip (+0.54)? Was the `points:` fix rebuilt (`ugv_navigation`)?
   - `collision_monitor` startup log for polygon or parameter errors
@@ -289,15 +289,15 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
   - `meshes/chassis.obj` (exported from the `.iam` in meters, wheels suppressed) + hand-written `chassis.mtl` (red). The `newmtl` name must match the OBJ's `usemtl` line (`191,191,191`). `meshes` added to `install(DIRECTORY ...)`
   - OBJ is Inventor **y-up**, origin at the body bottom, wedge toward Inventor −x → visual `<origin xyz="-0.066 0 -0.164" rpy="${pi/2} 0 ${pi}"/>`. Only the visual is a mesh; collision stays a box
   - Body read from the mesh's vertices: main box 0.56 × 0.41 × 0.33 m (22 × 16 × 13 in) + 0.25 m sloped wedge in front. `base_link` = middle of the main box (wheelbase center = turning center), not the bounding-box center
-  - Wheels: no wheel mesh, kept cylinders. **Estimated** (TODO from ME): r 0.10, spacing 0.22, `wheel_z` −0.114 → ~5 cm ground clearance, `base_link` 0.214 m above the ground
+  - Wheels: no wheel mesh, kept cylinders. First estimate r 0.10, `wheel_z` −0.114. **Updated 2026-11-24 from ME:** 5 in diameter (`wheel_r` 0.0635), 20 in outside to outside (`wheel_outer_w` 0.508 → `wheel_w` 0.049). New `ground_clearance` property (0.05, estimate) sets `wheel_z` = −0.1515 → `base_link` 0.215 m up, so sensor heights moved only 1 mm
   - Cameras: front + rear → `front_left_cam` / `front_right_cam` on the wedge ridge corners (x 0.29, y ±0.185), yaw ±45° (~192° view, ~12° overlap). No rear camera; the 360° lidar covers the rear
   - Curb lidar moved to the wedge face (0.38, 0, 0.04): 0.25 m above ground, 14° down → ground ~1 m ahead. Nav2 height filters unchanged (they're ground-relative)
   - 360° lidar on a 5 cm riser (`lidar_riser`), scan plane 0.45 m. The new cams + GPS puck sat in its scan plane (self-hits). It's blind below 0.45 m except where the curb lidar looks
   - Depth cam commented out (xacro + 2 bridge lines)
   - All sensor visuals use `sensor_blue`; IMU (board under the lid) and GPS (puck on top) got visuals
   - Gazebo finds the mesh via `AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', <share>/..)` in `sim.launch.py`
-  - Nav2 footprint (both costmaps + Collision Monitor `FootprintApproach`): `[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]`. GPS waypoint run OK
-  - Still open: real wheel numbers (→ ride height → curb lidar tilt), collision box doesn't include the wedge, Collision Monitor stop zone; Collision Monitor barely slows (open issue in Where I am)
+  - Nav2 footprint (both costmaps + Collision Monitor `FootprintApproach`): `[[0.54, 0.29], [0.54, -0.29], [-0.33, -0.29], [-0.33, 0.29]]`. GPS waypoint run OK. With the real wheels (2026-11-24): `[[0.54, 0.26], [0.54, -0.26], [-0.29, -0.26], [-0.29, 0.26]]`
+  - Still open: ground clearance, axle spacing and wheel count from ME (→ ride height → curb lidar tilt), collision box doesn't include the wedge, Collision Monitor stop zone; Collision Monitor barely slows (open issue in Where I am)
 
 ## Frames (`ugv`)
 
@@ -305,7 +305,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 |---|---|---|
 | `odom` | `ekf_filter_node` (local EKF) | Fixed start point of odometry. Local costmap frame. x-axis = magnetic east (~9.2° off true east) since the EKF fuses Madgwick yaw |
 | `base_footprint` | `ekf_filter_node` (`odom` → `base_footprint`). DiffDrive's TF is not bridged | On the ground under the robot center (z 0). Nav2 robot frame |
-| `base_link` | `robot_state_publisher` (`/tf_static`, fixed joint) | Middle of the main box (wheelbase center), 0.214 m above `base_footprint` |
+| `base_link` | `robot_state_publisher` (`/tf_static`, fixed joint) | Middle of the main box (wheelbase center), 0.215 m above `base_footprint` |
 | `left_/right_wheel_{front,middle,rear}` | `robot_state_publisher` (from `/joint_states`) | Wheels |
 | `imu_link` | `robot_state_publisher` (`/tf_static`) | IMU + magnetometer, 0.165 m above `base_link` (top of body). Madgwick has `publish_tf: False` so it doesn't add a 2nd parent |
 | `lidar_link` | `robot_state_publisher` (`/tf_static`) | Lidar center on a 5 cm riser, 0.235 m above `base_link` (0.45 m above ground) |
@@ -323,17 +323,17 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 | `vehicle_blue/chassis` | Robot body. Moves relative to odom |
 | `map` | Not published yet. Comes later from localization / Nav2 |
 
-## My robot (`ugv_description`, chassis from Inventor, wheels estimated)
+## My robot (`ugv_description`, chassis from Inventor, wheel size from ME)
 
 | Property | Value | Meaning |
 |---|---|---|
 | `body_l` × `body_w` × `body_h` | 0.56 × 0.41 × 0.33 m | Main box (collision box), centered on `base_link`. Wedge not included |
 | Visual | `meshes/chassis.obj` | Main box + 0.25 m wedge in front, tip at x ≈ +0.53 |
 | `body_m` | 15 kg | Body mass (placeholder) |
-| `wheel_r`, `wheel_w`, `wheel_m` | 0.10 m, 0.08 m, 1 kg | Each of the 6 wheels (estimate) |
+| `wheel_r`, `wheel_w`, `wheel_m` | 0.0635 m (5 in dia.), 0.049 m, 1 kg | Each of the 6 wheels. `wheel_w` = `wheel_outer_w`/2 − `body_w`/2, from ME's 20 in outside-to-outside. Mass is a guess |
 | `wheel_x_spacing` | 0.22 m | Front/rear wheels at x = ±0.22, middle at 0 (estimate) |
-| wheel y | ±(body_w/2 + wheel_w/2) = ±0.245 m | Left = +y, right = −y |
-| `wheel_z` | −0.114 m | Axles below `base_link` → `base_link` 0.214 m up, ~5 cm ground clearance (estimate) |
+| wheel y | ±(body_w/2 + wheel_w/2) = ±0.2295 m | Left = +y, right = −y. Outer edge ±0.254 m. DiffDrive `wheel_separation` 0.459 |
+| `ground_clearance` | 0.05 m | Ground to body bottom (estimate). Sets `wheel_z` = `wheel_r` − `ground_clearance` − `body_h`/2 = −0.1515 → `base_link` 0.215 m up |
 
 - Frames: `base_link` + `left_wheel_{front,middle,rear}`, `right_wheel_{front,middle,rear}`. Joints are `<name>_joint`.
 - ROS axes: x forward, y left, z up.
@@ -376,7 +376,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Chunk C (~1–2 h): tune + drive test (RViz pose should stay on Gazebo's)
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
 5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17, ~~(5) Collision Monitor: curb lidar~~ done 2026-11-17 (stop zone + tuning deferred to the real robot model). Ramp + terrain classifier v1 → **winter break** (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
-6. **Step 16:** ~~chassis mesh, sensor layout, footprint, ME spec~~ done 2026-11-23. Left: real wheel numbers from ME (re-check ride height + curb lidar tilt), collision box with the wedge, cross-check the EE parts list and fill in datasheet sizes ([sensor-mounting.md](sensor-mounting.md)).
+6. **Step 16:** ~~chassis mesh, sensor layout, footprint, ME spec~~ done 2026-11-23. Wheel size from ME done 2026-11-24. Left: ground clearance, axle spacing, wheel count from ME (re-check ride height + curb lidar tilt), collision box with the wedge, cross-check the EE parts list and fill in datasheet sizes ([sensor-mounting.md](sensor-mounting.md)).
 7. **Step 14 minimal (weekend):** fix the `map` frame tilt, then a flat OSM campus world. Demo: GPS waypoints along a real sidewalk, screen-recorded.
 8. Weekday evenings: team handoff doc for EE + ME.
 9. Winter break: Step 15 (Route Server, click-to-go), campus elevation, ramp + terrain classifier, Collision Monitor stop zone.

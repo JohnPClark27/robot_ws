@@ -44,7 +44,7 @@ Gazebo ──► ros_gz_bridge ──► ROS      sensors ──► drivers on P
 | GPS covariance | 0.0004 (2 cm, RTK fixed) | From the driver. Check it **grows** when RTK drops to float/standard |
 | IMU noise | Guessed MEMS values | From the datasheet, or measure at rest |
 | Madgwick `orientation_stddev` | 0.05 | Retune after mag calibration |
-| Robot size, sensor positions | Placeholders | Real Fusion 360 measurements (roadmap Step 16) |
+| Robot size, sensor positions | Chassis from the Inventor mesh, wheel size from ME (5 in, 20 in outside to outside), ground clearance + axle spacing estimated | ME's final measurements (roadmap Step 16, [sensor-mounting.md](sensor-mounting.md)) |
 | Collision Monitor zones | Only `FootprintApproach` (creeps, can touch) | Add a `stop` polygon (+ maybe `slowdown`) sized from real braking distance and top speed. Recheck that the curb lidar keeps short obstacles in view until contact |
 
 ### New things to add
@@ -99,13 +99,13 @@ If the IMU ends up on the **Pi** (I2C) instead of the ESP32, same topics and uni
 | Number | Used for |
 |---|---|
 | Encoder counts per motor revolution + gear ratio | Ticks → meters |
-| Drive sprocket radius (effective track radius) | Ticks → meters |
-| Track separation (center to center) | Turning math. We'll also measure the *effective* value with a spin test, since tracks slip |
+| Wheel radius: **0.0635 m (5 in) from ME**. If tracks: drive sprocket radius (effective track radius) | Ticks → meters |
+| Track separation (center to center). Sim: 0.459 m, from ME's 20 in outside-to-outside minus one wheel width | Turning math. We'll also measure the *effective* value with a spin test, since tracks slip |
 | Max safe speed and acceleration | Nav2 limits + firmware limits |
 | IMU part number + datasheet | Noise values, axis directions |
 | IMU position + orientation on the board, and the board's position in the chassis | `imu_joint` in the URDF |
-| GPS antenna position | `gps_joint` (sim has it 0.15 m behind center) |
-| Lidar + curb lidar positions and tilt angle | `lidar_joint`, `curb_lidar_joint` (13° tilt in sim) |
+| GPS antenna position | `gps_joint` (sim has it 0.14 m behind center) |
+| Lidar + curb lidar positions and tilt angle | `lidar_joint`, `curb_lidar_joint` (14° tilt in sim, on the wedge face) |
 | Robot mass, rough center of mass | URDF inertia, Nav2 tuning |
 
 ### Magnetometer: highest risk item

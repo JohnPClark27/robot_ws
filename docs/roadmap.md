@@ -15,12 +15,12 @@ Current progress: [session-resume.md](session-resume.md).
 |---|---|---|
 | Main computer | Raspberry Pi 5, 8 GB | Have it |
 | Obstacle sensing | **1 × 360° 2D lidar** on top (e.g. RPLIDAR C1, LDRobot LD19) | Decided |
-| Curb detection | **2nd 2D lidar, tilted down** (~13°, ground line ~1 m ahead) | Decided 2026-11-09 after sim comparison (cost) |
+| Curb detection | **2nd 2D lidar, tilted down** (~14° on the real chassis, ground line ~1 m ahead) | Decided 2026-11-09 after sim comparison (cost) |
 | Cameras | 2 × Pi Camera Module 3 (wide) on the Pi's 2 CSI ports | Planned |
 | Vision acceleration | Raspberry Pi AI HAT+ (Hailo), for camera detection only | Planned |
 | Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
 | Motor control | ESP32 running micro-ROS → motor controller | Planned |
-| Drivetrain | **2 tank treads (tracks), one per side, 2 motors per track** (4 motors total), skid-steer | Decided (changed 2026-10-22 from 4 wheels); dimensions TBD |
+| Drivetrain | **2 tank treads (tracks), one per side, 2 motors per track** (4 motors total), skid-steer | Decided (changed 2026-10-22 from 4 wheels). **2026-11-24: ME gave 5 in (0.127 m) wheels, 20 in (0.508 m) outside to outside. Confirm: tracks over these wheels, or plain wheels? How many per side?** |
 | CAD → sim meshes | ME team models in **Autodesk Inventor**. Visual meshes as **OBJ** (or DAE via Blender), collision as simple boxes | Decided 2026-11-21 |
 
 ### Why these choices
@@ -30,14 +30,14 @@ Current progress: [session-resume.md](session-resume.md).
   - Confirmed in sim: a 0.20 m curb is invisible to the top lidar (scan plane ~0.27 m above ground).
 - **Tilted 2nd lidar for curbs (not a depth camera)**: chosen for cost (~$70–100 vs ~$300+ for a depth camera) and light Pi CPU load. Both were simulated (2026-11-09) and both detect the curb.
   - Trade-off: the tilted lidar sees the curb only where its scan line crosses it (~1 m ahead). Once the robot is closer, the curb edge is out of the scan, so Nav2's costmap has to remember it (obstacle marking with persistence).
-  - Shallow 13° mount is sensitive to pitch: 1° of tilt (bumps, mounting error) moves the line ~0.1 m. Mount rigidly.
+  - Shallow 13–14° mount is sensitive to pitch: 1° of tilt (bumps, mounting error) moves the line ~0.1 m. Mount rigidly.
   - Depth camera stays in the sim as a fallback / comparison option.
 - **RTK GPS**: standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data (free NTRIP services exist in many US states).
   - If RTK doesn't fit the budget, fallback: standard GPS + heavier reliance on lidar and odometry. Expect worse lane-keeping on narrow sidewalks.
 - **Tracked skid-steer**: good traction and contact area for curbs. Tracks skid even more than wheels when turning, so track/encoder odometry drifts badly in turns; the IMU (and GPS) correct heading.
   - Software-wise it's still a differential drive: both motors on a track get the same command, so the robot is controlled as "left side speed / right side speed".
   - Sim approach (open): start by approximating each track with several wheels per side (simple, works with the DiffDrive plugin). Try Gazebo's tracked-vehicle plugins later if needed for curb tests.
-- **URDF/xacro** for the robot model (not SDF): Nav2 and ROS tools need it, and Fusion 360 dimensions and meshes drop in later as variables.
+- **URDF/xacro** for the robot model (not SDF): Nav2 and ROS tools need it, and CAD dimensions and meshes (Inventor, OBJ) drop in as variables.
 - **The AI HAT only speeds up neural-network vision.** Nav2, lidar processing, and localization still run on the Pi CPU. It uses the Pi 5's only PCIe port.
 
 ## System architecture
@@ -124,6 +124,7 @@ Rough prices. Check current listings before buying.
 | Chassis, motors, motor controller, battery, ESP32, wiring | **remaining ~$225–500** |
 
 - **Risk:** curb traversal needs high-torque motors and a sturdy chassis. Price the drivetrain early.
+- **Risk (2026-11-24):** 5 in wheels (6.35 cm radius) can climb roughly a step no taller than their radius, and the body has ~5 cm ground clearance. Campus curbs are ~10–15 cm. Curb traversal needs tracks, bigger wheels, or a climbing design (the front wedge alone won't do it). Discuss with ME.
 - **Open:** whether RTK fits. Bring to the team.
 
 ## Phases

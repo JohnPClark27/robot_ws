@@ -10,9 +10,10 @@
 
 ## Current sim positions (estimated chassis, 2026-11-23)
 
-Source: [`ugv_sensors.xacro`](../src/ugv_description/urdf/ugv_sensors.xacro). Body from `chassis.obj`: main box 0.56 × 0.41 × 0.33 m plus a 0.25 m sloped wedge on the front. Chassis center (`base_link`) is the middle of the main box, 0.21 m above the ground. Body top at 0.38 m.
+Source: [`ugv_sensors.xacro`](../src/ugv_description/urdf/ugv_sensors.xacro). Body from `chassis.obj`: main box 0.56 × 0.41 × 0.33 m plus a 0.25 m sloped wedge on the front. Chassis center (`base_link`) is the middle of the main box, 0.215 m above the ground. Body top at 0.38 m.
 
-**Estimate:** the wheels (6 × 0.20 m diameter, ~5 cm ground clearance) are guesses. If the real ride height changes, every height below moves with it, and the curb lidar tilt must be recalculated.
+**Wheels (from ME, 2026-11-24):** 5 in (0.127 m) diameter, 20 in (0.508 m) from the outside of the left wheels to the outside of the right wheels.
+**Still estimated:** 6 wheels (3 per side), axles at x = −0.22 / 0 / +0.22 m, wheels right against the body sides (≈ 2 in / 0.049 m wide), **5 cm ground clearance**. If the ground clearance changes, every height below moves with it, and the curb lidar tilt must be recalculated.
 
 | Sensor | Where | x (m) | y (m) | z above ground (m) | Angle |
 |---|---|---|---|---|---|
@@ -34,7 +35,7 @@ Source: [`ugv_sensors.xacro`](../src/ugv_description/urdf/ugv_sensors.xacro). Bo
 ## What we need back from ME
 
 - Final x / y / z and angle of every sensor, from the chassis center.
-- Real wheel size (diameter, width) and axle positions, ground clearance.
+- Wheel count, width and axle positions, and the ground clearance (diameter and overall width received 2026-11-24).
 - Overall robot size (L × W × H) and mass estimate.
 
 ## Part dimensions
