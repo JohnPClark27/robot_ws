@@ -34,27 +34,27 @@
 
   <rect x="20" y="110" width="210" height="50" rx="6" class="hw"/>
   <text x="32" y="131" class="t">360° lidar (2D)</text>
-  <text x="32" y="149" class="s">≥ 12 m range, top of robot</text>
+  <text x="32" y="149" class="s">RPLIDAR C1, top of robot</text>
 
   <rect x="20" y="175" width="210" height="50" rx="6" class="hw"/>
   <text x="32" y="196" class="t">Curb lidar (2D)</text>
-  <text x="32" y="214" class="s">tilted 14° down, wedge face</text>
+  <text x="32" y="214" class="s">RPLIDAR C1, 14° down</text>
 
   <rect x="20" y="300" width="210" height="60" rx="6" class="hw"/>
   <text x="32" y="323" class="t">2 × wide cameras</text>
-  <text x="32" y="342" class="s">front corners, ±45°, ~102° FOV</text>
+  <text x="32" y="342" class="s">Camera Module 3 Wide, ±45°</text>
 
   <rect x="20" y="400" width="210" height="56" rx="6" class="hw"/>
   <text x="32" y="422" class="t">RTK GPS + antenna</text>
-  <text x="32" y="441" class="s">~2 cm with corrections</text>
+  <text x="32" y="441" class="s">ZED-F9P + all-band antenna</text>
 
   <rect x="20" y="480" width="210" height="50" rx="6" class="ext"/>
   <text x="32" y="501" class="t">NTRIP caster</text>
-  <text x="32" y="519" class="s">internet service (RTK corrections)</text>
+  <text x="32" y="519" class="s">Indiana InCORS (free, sign-up)</text>
 
   <rect x="20" y="590" width="210" height="56" rx="6" class="hw"/>
   <text x="32" y="612" class="t">IMU + magnetometer</text>
-  <text x="32" y="631" class="s">9-axis, away from motors/battery</text>
+  <text x="32" y="631" class="s">BNO085, away from motors</text>
 
   <rect x="20" y="670" width="210" height="56" rx="6" class="hw"/>
   <text x="32" y="692" class="t">Wheel encoders</text>
@@ -79,7 +79,7 @@
   <rect x="300" y="580" width="220" height="310" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
   <text x="314" y="606" class="h">ESP32 firmware</text>
   <text x="314" y="624" class="s" font-style="italic">micro-ROS client (EE team)</text>
-  <text x="314" y="652" class="s">• reads IMU + mag (I²C)</text>
+  <text x="314" y="652" class="s">• reads IMU + mag (SPI / UART)</text>
   <text x="314" y="672" class="s">• counts encoders → odometry</text>
   <text x="314" y="692" class="s">• PWM to motor drivers</text>
   <text x="314" y="712" class="s">• watchdog: no /cmd_vel</text>
@@ -97,7 +97,7 @@
   <!-- Drivers column -->
   <rect x="645" y="112" width="210" height="110" rx="6" class="node"/>
   <text x="657" y="136" class="t">Lidar drivers × 2</text>
-  <text x="657" y="155" class="s">e.g. rplidar_ros / ldlidar</text>
+  <text x="657" y="155" class="s">sllidar_ros2 (RPLIDAR C1)</text>
   <text x="657" y="173" class="s">frame_id: lidar_link,</text>
   <text x="657" y="189" class="s">curb_lidar_link</text>
 
@@ -217,7 +217,7 @@
   <text x="437" y="499" class="lp" text-anchor="middle">internet (Wi-Fi / LTE) · RTCM3</text>
 
   <line x1="230" y1="618" x2="298" y2="618" class="phys" marker-end="url(#aPhys)"/>
-  <text x="265" y="612" class="lp" text-anchor="middle">I²C</text>
+  <text x="266" y="612" class="lp" text-anchor="middle" style="font-size:9.5px">SPI/UART</text>
   <line x1="230" y1="698" x2="298" y2="698" class="phys" marker-end="url(#aPhys)"/>
   <text x="265" y="692" class="lp" text-anchor="middle">GPIO A/B</text>
   <line x1="230" y1="778" x2="298" y2="778" class="phys" marker-end="url(#aPhys)"/>

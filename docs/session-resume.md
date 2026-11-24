@@ -1,6 +1,6 @@
 # Session resume notes
 
-Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor), 2026-11-21 (semester plan: weekend vs winter break, sensor mounting spec), 2026-11-23 (Step 16 part 1: chassis mesh, sensor layout for the real chassis, footprint, ME spec), 2026-11-24 (real wheel size from ME).
+Written 2026-10-15 so work can continue on another computer. Updated 2026-10-21 (new machine), 2026-10-23 (Step 10 progress), 2026-10-24 (ugv drivable, IMU on ugv), 2026-11-07 (lidar + 2 cameras), 2026-11-09 (world file, GPS, curb sensors, magnetometer: sim sensors complete), 2026-11-10 (Step 12 chunk A: local EKF; chunk B part 1: magnetometer + Madgwick), 2026-11-14 (chunk B part 2 started: GPS noise fix, navsat_transform running, declination test in progress), 2026-11-15 (Step 12 done: navsat IMU remap fix, gps_cov_relay, global EKF, process noise tuning; sim-to-real doc; Step 13 chunks 1–3: Nav2 drives to goals, around the box and around the curb; `base_footprint` frame), 2026-11-17 (Step 13 chunk 4: GPS waypoints; chunk 5: curb lidar in the Collision Monitor), 2026-11-21 (semester plan: weekend vs winter break, sensor mounting spec), 2026-11-23 (Step 16 part 1: chassis mesh, sensor layout for the real chassis, footprint, ME spec), 2026-11-24 (real wheel size from ME; DE5 handoff doc `Clark - DE5.pdf`: system diagram, ME spec from the rear-bottom datum, proposed parts list, plan change).
 Related: [roadmap.md](roadmap.md) (end goal + plan), [gazebo-basics-log.md](gazebo-basics-log.md) (full command log), [quick-commands.md](quick-commands.md) (cheat sheet).
 
 ## Where I am
@@ -25,7 +25,8 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
   - Does it see points at all? `ros2 topic hz /scan_curb_cloud`; obstacle height vs `min_height` (scan 0.15, curb cloud 0.08). The 360° lidar is now at 0.45 m, so it misses short obstacles
   - `min_points: 6` and `time_before_collision: 1.2` may be too lax for the larger footprint
   - Command chain: Nav2 → `cmd_vel_smoothed` → Collision Monitor → `cmd_vel`. Teleop tests must publish to `cmd_vel_smoothed` and **hold** keys
-**Next:** fix the `map` frame tilt, then **Step 14 minimal** (flat OSM campus world), then the GPS-waypoint demo recording. Milestone ~2026-11-26.
+**DE5 handoff (2026-11-24):** [`Clark - DE5.pdf`](Clark%20-%20DE5.pdf) went to the team: progress, ME positions from the rear-bottom datum (inches), [system diagram](system-diagram.png), proposed parts (RPLIDAR C1 × 2, Camera Module 3 Wide × 2 + Pi 5 cables, ZED-F9P + all-band antenna, BNO085 on the ESP32). RTK is decided; E-stop + power belong to EE; curb climbing parked.
+**Next (updated 2026-11-24):** register for InCORS (RTK corrections), finalize parts with EE, then a more complicated `test_world` + screen recording before the presentation. Nav tuning, the `map` tilt fix and the OSM world → winter break. Most other sim / micro-ROS work waits for the real parts.
 
 ## Completed
 
@@ -377,9 +378,9 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
    - Docs: [robot_localization](https://docs.ros.org/en/jazzy/p/robot_localization/), [Nav2 GPS tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_gps.html)
 5. **Step 13: Nav2** against the simulated robot. Chunks: ~~(1) Nav2 running, click goal in RViz~~, ~~(2) costmaps from `/scan`, drive around the box~~, ~~(3) curb lidar in the costmap~~ done 2026-11-15, ~~(4) GPS waypoints (lat/lon goals)~~ done 2026-11-17, ~~(5) Collision Monitor: curb lidar~~ done 2026-11-17 (stop zone + tuning deferred to the real robot model). Ramp + terrain classifier v1 → **winter break** (design items above). Docs: [Nav2 getting started](https://docs.nav2.org/getting_started/index.html)
 6. **Step 16:** ~~chassis mesh, sensor layout, footprint, ME spec~~ done 2026-11-23. Wheel size from ME done 2026-11-24. Left: ground clearance, axle spacing, wheel count from ME (re-check ride height + curb lidar tilt), collision box with the wedge, cross-check the EE parts list and fill in datasheet sizes ([sensor-mounting.md](sensor-mounting.md)).
-7. **Step 14 minimal (weekend):** fix the `map` frame tilt, then a flat OSM campus world. Demo: GPS waypoints along a real sidewalk, screen-recorded.
-8. Weekday evenings: team handoff doc for EE + ME.
-9. Winter break: Step 15 (Route Server, click-to-go), campus elevation, ramp + terrain classifier, Collision Monitor stop zone.
+7. ~~Team handoff doc for EE + ME~~ done 2026-11-24 (`Clark - DE5.pdf`). Register for InCORS; finalize parts with EE.
+8. **Before the presentation:** a more complicated `test_world` (e.g. curb with a curb cut, sidewalks, pedestrian-sized obstacles), update the GPS waypoint route, screen-record the demo.
+9. Winter break: navigation weights / costmap tuning, Collision Monitor fix + stop zone, Step 14 (OSM campus world + `map` tilt fix), Step 15 (Route Server, click-to-go), ramp + terrain classifier.
 10. Spring: custom PCBs / micro-ROS, sim → real.
 
 ## Gotchas so far

@@ -14,12 +14,13 @@ Current progress: [session-resume.md](session-resume.md).
 | Topic | Decision | Status |
 |---|---|---|
 | Main computer | Raspberry Pi 5, 8 GB | Have it |
-| Obstacle sensing | **1 × 360° 2D lidar** on top (e.g. RPLIDAR C1, LDRobot LD19) | Decided |
-| Curb detection | **2nd 2D lidar, tilted down** (~14° on the real chassis, ground line ~1 m ahead) | Decided 2026-11-09 after sim comparison (cost) |
-| Cameras | 2 × Pi Camera Module 3 (wide) on the Pi's 2 CSI ports | Planned |
+| Obstacle sensing | **1 × 360° 2D lidar** on top: **Slamtec RPLIDAR C1** (USB to the Pi) | Decided. Model proposed 2026-11-24, finalize with EE |
+| Curb detection | **2nd 2D lidar, tilted down** (~14° on the real chassis, ground line ~1 m ahead): a **second RPLIDAR C1** (same driver) | Decided 2026-11-09 after sim comparison (cost). Model proposed 2026-11-24 |
+| Cameras | 2 × **Pi Camera Module 3 Wide** on the Pi's 2 CSI ports, front corners at ±45°, for pedestrian/vehicle detection. Need 2 × **Pi 5 camera cables** (22-pin to 15-pin) | Proposed 2026-11-24 |
 | Vision acceleration | Raspberry Pi AI HAT+ (Hailo), for camera detection only | Planned |
-| Localization | **RTK GPS** (e.g. u-blox ZED-F9P) + IMU + wheel odometry | **Planned, budget TBD** |
-| Motor control | ESP32 running micro-ROS → motor controller | Planned |
+| Localization | **RTK GPS**: SparkFun GPS-RTK2 (u-blox ZED-F9P) + u-blox all-band antenna, USB to the Pi. **IMU + mag**: Adafruit BNO085 on the ESP32 (SPI or UART, not I²C). + wheel encoders | **RTK decided 2026-11-24.** Models proposed, finalize with EE. Check GPS ↔ antenna band match before ordering |
+| Motor control | ESP32 running micro-ROS → motor controller. Motors **with quadrature encoders** (ME + EE pick) | Planned |
+| E-stop + power | Hardware E-stop and power supply (incl. the Pi's 5 V) | **EE team owns it** |
 | Drivetrain | **2 tank treads (tracks), one per side, 2 motors per track** (4 motors total), skid-steer | Decided (changed 2026-10-22 from 4 wheels). **2026-11-24: ME gave 5 in (0.127 m) wheels, 20 in (0.508 m) outside to outside. Confirm: tracks over these wheels, or plain wheels? How many per side?** |
 | CAD → sim meshes | ME team models in **Autodesk Inventor**. Visual meshes as **OBJ** (or DAE via Blender), collision as simple boxes | Decided 2026-11-21 |
 
@@ -32,8 +33,8 @@ Current progress: [session-resume.md](session-resume.md).
   - Trade-off: the tilted lidar sees the curb only where its scan line crosses it (~1 m ahead). Once the robot is closer, the curb edge is out of the scan, so Nav2's costmap has to remember it (obstacle marking with persistence).
   - Shallow 13–14° mount is sensitive to pitch: 1° of tilt (bumps, mounting error) moves the line ~0.1 m. Mount rigidly.
   - Depth camera stays in the sim as a fallback / comparison option.
-- **RTK GPS**: standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data (free NTRIP services exist in many US states).
-  - If RTK doesn't fit the budget, fallback: standard GPS + heavier reliance on lidar and odometry. Expect worse lane-keeping on narrow sidewalks.
+- **RTK GPS** (decided 2026-11-24): standard GPS is accurate to ~2–5 m, but sidewalks are ~1.5–3 m wide. RTK gets ~cm accuracy using correction data.
+  - Corrections: Indiana's **InCORS** network (INDOT) is free over NTRIP (RTCM 3.x), but needs a signed **RTK user agreement** before they send login details. **Register early**: approval isn't instant. [incors.in.gov/rtk.aspx](https://incors.in.gov/rtk.aspx)
 - **Tracked skid-steer**: good traction and contact area for curbs. Tracks skid even more than wheels when turning, so track/encoder odometry drifts badly in turns; the IMU (and GPS) correct heading.
   - Software-wise it's still a differential drive: both motors on a track get the same command, so the robot is controlled as "left side speed / right side speed".
   - Sim approach (open): start by approximating each track with several wheels per side (simple, works with the DiffDrive plugin). Try Gazebo's tracked-vehicle plugins later if needed for curb tests.
@@ -50,9 +51,9 @@ Raspberry Pi 5  (Nav2, robot_localization, perception)
  └── USB serial: ESP32 (micro-ROS)
        ├── motor controller → motors
        ├── wheel encoders   → odometry
-       ├── IMU + magnetometer (9-DoF, or on the Pi)
+       ├── IMU + magnetometer (BNO085, SPI or UART)
        ├── bump switches   → cut motors in firmware, publish /bumper
-       └── e-stop + watchdog (stop motors if commands stop)
+       └── e-stop + watchdog (stop motors if commands stop). E-stop hardware + power: EE team
 ```
 
 - The ESP32 handles **realtime** jobs only. It is too slow to pass lidar or camera data through.
@@ -108,24 +109,35 @@ End-of-semester milestone is due ~2026-11-26. Goal: a technically and visually i
 
 **Spring:** Phase 2, sim → real with the whole team.
 
+**Update 2026-11-24 (DE5 handoff, `Clark - DE5.pdf`):** milestone moved to the team meeting, presentation is a couple of weeks out. Plan changed:
+- **Done:** Step 16 part 1 (chassis mesh, sensor layout, ME spec from the rear-bottom datum), system diagram, proposed parts list for EE.
+- **Dropped for now:** the OSM campus world (Step 14) and the `map` tilt fix → winter break.
+- **Before the presentation:** a more complicated `test_world` to show off navigation, plus a screen recording.
+- **Winter break:** navigation weights / costmap tuning (needs custom code, more time to learn), plus the list above.
+- **Waiting on hardware:** most sim and micro-ROS work. Then only tweaks from ME and EE input.
+
 ## Budget (target: under $1000, Pi already covered)
 
-Rough prices. Check current listings before buying.
+Proposed parts (DE5, 2026-11-24). Prices are list prices from the retailer pages; check before buying.
 
 | Item | Approx. |
 |---|---|
-| 360° 2D lidar | $70–100 |
-| Curb sensor (2nd 2D lidar, tilted) | $70–100 |
-| 2 × Pi Camera Module 3 | $50–70 |
+| 360° lidar: Slamtec RPLIDAR C1 | $69 |
+| Curb lidar: 2nd RPLIDAR C1 | $69 |
+| 2 × Pi Camera Module 3 Wide ($38.50 each) | $77 |
+| 2 × Pi 5 camera cable, 22-pin to 15-pin ($2.70 each) | ~$5 |
+| RTK GPS: SparkFun GPS-RTK2 (ZED-F9P) | $260 (was on sale for $208) |
+| GPS antenna: u-blox all-band (ANN-MB2), 5 m cable | $120 |
+| IMU + mag: Adafruit BNO085 | $29.50 |
+| Bump switches | ~$5 |
+| **Sensors subtotal** | **~$635** |
 | AI HAT+ | $70–130 |
-| RTK GPS + antenna | $200–300 |
-| IMU | ~$25 |
-| **Sensors + compute subtotal** | **~$500–775** |
-| Chassis, motors, motor controller, battery, ESP32, wiring | **remaining ~$225–500** |
+| **Sensors + compute subtotal** | **~$705–765** |
+| Chassis, motors (with encoders), motor controller, battery, ESP32, wiring | **remaining ~$235–295** |
 
 - **Risk:** curb traversal needs high-torque motors and a sturdy chassis. Price the drivetrain early.
-- **Risk (2026-11-24):** 5 in wheels (6.35 cm radius) can climb roughly a step no taller than their radius, and the body has ~5 cm ground clearance. Campus curbs are ~10–15 cm. Curb traversal needs tracks, bigger wheels, or a climbing design (the front wedge alone won't do it). Discuss with ME.
-- **Open:** whether RTK fits. Bring to the team.
+- **Parked (2026-11-24, not a worry yet):** 5 in wheels (6.35 cm radius) climb roughly a step no taller than their radius, with ~5 cm ground clearance. Revisit if curb climbing comes back into scope.
+- **RTK:** decided (2026-11-24). Budget above includes it.
 
 ## Phases
 
@@ -140,9 +152,9 @@ Rough prices. Check current listings before buying.
 | 11 | Add GPS (`navsat` sensor) | Done (2026-11-09): `/gps/fix`, campus origin in `<spherical_coordinates>`, RTK-level noise |
 | 12 | `robot_localization`: fuse GPS + IMU + odometry (+ magnetometer heading) | Done (2026-11-15). Local EKF (`odom → base_link`), `mag_relay` + Madgwick absolute yaw, `navsat_transform` (declination +0.1606 verified), `gps_cov_relay`, global EKF (`map → odom`), process noise tuned. Optional tuning leftovers in [session-resume.md](session-resume.md) |
 | 13 | Nav2 on the simulated robot (GPS waypoints); Collision Monitor (slow/stop from lidar + curb lidar) | In progress. Chunks 1–3 done (2026-11-15): `ugv_navigation`, goals from RViz, avoids box, curb lidar in both costmaps (voxel layers), `base_footprint`. Next: GPS waypoints, Collision Monitor. Design item: drop-off step detector |
-| 14 | Build the campus world (OSM + elevation → mesh → Gazebo) | Weekend 2026-11-21: flat version first. Elevation → winter break |
+| 14 | Build the campus world (OSM + elevation → mesh → Gazebo) | **Winter break** (dropped from the semester plan 2026-11-24). Before the presentation: a more complicated `test_world` instead |
 | 15 | Sidewalk route graph from OSM + Nav2 Route Server; click-to-go | **Winter break.** Semester demo uses GPS waypoints instead |
-| 16 | Swap in real dimensions and CAD meshes from Inventor (OBJ); re-place 360° lidar, cameras, tilted curb lidar to match the real mounts. (Moved after the OSM steps on 2026-11-15, moved back first on 2026-11-21 for the ME handoff) | Weekend 2026-11-21. Mounting spec: [sensor-mounting.md](sensor-mounting.md) |
+| 16 | Swap in real dimensions and CAD meshes from Inventor (OBJ); re-place 360° lidar, cameras, tilted curb lidar to match the real mounts | **Part 1 done (2026-11-23/24):** chassis mesh, 5 in wheels from ME, sensor layout, ME spec from the rear-bottom datum ([sensor-mounting.md](sensor-mounting.md)). Left: ground clearance + axle spacing from ME, real sensor sizes once parts are ordered |
 
 ### Phase 2: Hardware
 

@@ -47,16 +47,20 @@ Body from `chassis.obj`: main box 22 × 16 × 13 in (0.56 × 0.41 × 0.33 m) plu
 
 | Part | Model | Size (L × W × H mm) | Mounting holes | Weight | Sensing point (scan plane / lens center) | Datasheet |
 |---|---|---|---|---|---|---|
-| 360° lidar | TBD | | | | | |
-| Curb lidar | TBD | | | | | |
-| Cameras (×2, front corners) | Pi Camera Module 3 Wide? | | | | | |
-| GPS + antenna | TBD | | | | | |
-| IMU | TBD | | | | | |
+| 360° lidar | Slamtec RPLIDAR C1 (proposed) | | | 110 g | | [DFRobot page](https://www.dfrobot.com/product-2803.html) |
+| Curb lidar | Slamtec RPLIDAR C1 (proposed) | | | 110 g | | same |
+| Cameras (×2, front corners) | Pi Camera Module 3 Wide (proposed) | | | | | [Product brief](https://datasheets.raspberrypi.com/camera/sensor-assembly-product-brief.pdf) |
+| GPS | SparkFun GPS-RTK2, u-blox ZED-F9P (proposed) | | | | | [SparkFun GPS-15136](https://www.sparkfun.com/sparkfun-gps-rtk2-board-zed-f9p-qwiic-gps-15136.html) |
+| GPS antenna | u-blox all-band ANN-MB2, 5 m cable (proposed) | | | | | [SparkFun](https://www.sparkfun.com/gnss-all-band-high-precision-antenna-5m-sma.html) |
+| IMU | Adafruit BNO085 (proposed) | 25.6 × 22.7 × 4.6 | | 2.5 g | | [Adafruit 4754](https://www.adafruit.com/product/4754) |
+
+Proposed parts from the DE5 handoff (2026-11-24). Final list after EE review; sizes and mounting holes come from the datasheets once the parts are picked.
 
 ## EE parts list check (what the software assumes)
 
 - 360° lidar: 2D, range ≥ 12 m, USB
 - Curb lidar: 2D, short minimum range, USB
 - GPS: **RTK-capable** (sim uses ~2 cm accuracy; standard GPS is ~2 m)
-- IMU: **9-axis with magnetometer** (heading depends on it)
-- Cameras: CSI, wide angle
+- IMU: **9-axis with magnetometer** (heading depends on it). BNO085: wire with **SPI or UART**, I²C is unreliable (clock stretching)
+- Cameras: CSI, wide angle. The Pi 5 needs a 22-pin to 15-pin camera cable per camera
+- Wheel encoders: quadrature, built into the drive motors (ME + EE pick the motors)

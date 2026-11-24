@@ -52,9 +52,9 @@ Gazebo ──► ros_gz_bridge ──► ROS      sensors ──► drivers on P
 | What | Notes |
 |---|---|
 | `real.launch.py` (new bringup) | `robot_state_publisher` + sensor drivers + micro-ROS agent + `localization.launch.py` with `use_sim_time:=false` |
-| Sensor drivers | 360° lidar + curb lidar (e.g. `rplidar_ros` / `ldlidar` driver), GPS (e.g. `ublox_dgnss`), Pi cameras (e.g. `camera_ros`) |
+| Sensor drivers | 2 × RPLIDAR C1 (`sllidar_ros2`), GPS ZED-F9P (e.g. `ublox_dgnss`), Pi cameras (`camera_ros`). Parts proposed 2026-11-24, see [roadmap.md](roadmap.md#budget-target-under-1000-pi-already-covered) |
 | `micro_ros_agent` | Talks to the ESP32 over USB serial |
-| NTRIP client | Feeds RTK corrections to the GPS (needs internet: Wi-Fi or phone hotspot) |
+| NTRIP client | Feeds RTK corrections to the GPS (needs internet: Wi-Fi or phone hotspot). Source: Indiana **InCORS** (free, RTCM 3.x). **Sign the RTK user agreement early**; INDOT emails the server, port, username and password after approval ([incors.in.gov/rtk.aspx](https://incors.in.gov/rtk.aspx)) |
 | udev rules | Fixed device names (`/dev/lidar`, `/dev/curb_lidar`, `/dev/gps`, `/dev/esp32`) so USB order doesn't matter |
 | Docker for the Pi | arm64 image, pass through the USB devices (`devices:` in `compose.yaml`) |
 | Frame names | Every driver's `frame_id` must match a URDF link (`lidar_link`, `curb_lidar_link`, `gps_link`, `imu_link`, ...) |
@@ -102,7 +102,7 @@ If the IMU ends up on the **Pi** (I2C) instead of the ESP32, same topics and uni
 | Wheel radius: **0.0635 m (5 in) from ME**. If tracks: drive sprocket radius (effective track radius) | Ticks → meters |
 | Track separation (center to center). Sim: 0.459 m, from ME's 20 in outside-to-outside minus one wheel width | Turning math. We'll also measure the *effective* value with a spin test, since tracks slip |
 | Max safe speed and acceleration | Nav2 limits + firmware limits |
-| IMU part number + datasheet | Noise values, axis directions |
+| IMU part number + datasheet (proposed: Adafruit BNO085) | Noise values, axis directions |
 | IMU position + orientation on the board, and the board's position in the chassis | `imu_joint` in the URDF |
 | GPS antenna position | `gps_joint` (sim has it 0.14 m behind center) |
 | Lidar + curb lidar positions and tilt angle | `lidar_joint`, `curb_lidar_joint` (14° tilt in sim, on the wedge face) |
@@ -118,11 +118,11 @@ The heading bug we just fixed in sim shows how much a bad compass breaks GPS fus
 
 ### Pi / power / wiring
 
-- [ ] Stable 5 V / 5 A to the Pi 5 (brownouts while motors draw current = random reboots).
+- [ ] Stable 5 V / 5 A to the Pi 5 (brownouts while motors draw current = random reboots). EE team owns power + E-stop.
 - [ ] USB: 360° lidar, curb lidar, GPS, ESP32 (4 devices). Powered hub if needed.
 - [ ] GPS antenna on top, clear sky view, with a ground plane.
-- [ ] 2 CSI cameras + AI HAT (PCIe) fit together physically.
-- [ ] Internet on the robot for RTK corrections (NTRIP).
+- [ ] 2 CSI cameras + AI HAT (PCIe) fit together physically. 2 × Pi 5 camera cables (22-pin to 15-pin), long enough to reach the front corners.
+- [ ] Internet on the robot for RTK corrections (NTRIP). InCORS account approved before the GPS arrives.
 
 ---
 
@@ -145,7 +145,8 @@ One layer at a time. Same checks as in sim (see [quick-commands.md](quick-comman
 ## Open questions
 
 - [ ] micro-ROS simple (A) or `ros2_control` (B)?
-- [ ] IMU on the ESP32 board or on the Pi?
-- [ ] Which exact IMU, lidars, and GPS module? (drivers + datasheets)
-- [ ] Encoder type and resolution?
+- [x] IMU on the ESP32 board or on the Pi? → **ESP32** (proposed 2026-11-24), BNO085 over SPI or UART
+- [ ] Which exact IMU, lidars, and GPS module? → **Proposed 2026-11-24** (RPLIDAR C1 × 2, ZED-F9P + all-band antenna, BNO085, Camera Module 3 Wide × 2). Finalize with EE; check GPS ↔ antenna bands
+- [ ] Encoder type and resolution? → quadrature encoders built into the motors; ME + EE pick
+- [ ] InCORS RTK account: register (free, needs a signed agreement)
 - [ ] How does the robot get internet for RTK?
