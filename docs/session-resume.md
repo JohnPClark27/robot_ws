@@ -380,7 +380,7 @@ Sim → real checklist (code changes + what the EE team must provide): [sim-to-r
 6. **Step 16:** ~~chassis mesh, sensor layout, footprint, ME spec~~ done 2026-11-23. Wheel size from ME done 2026-11-24. Left: ground clearance, axle spacing, wheel count from ME (re-check ride height + curb lidar tilt), collision box with the wedge, cross-check the EE parts list and fill in datasheet sizes ([sensor-mounting.md](sensor-mounting.md)).
 7. ~~Team handoff doc for EE + ME~~ done 2026-11-24 (`Clark - DE5.pdf`). Register for InCORS; finalize parts with EE.
 8. **Before the presentation:** a more complicated `test_world` (e.g. curb with a curb cut, sidewalks, pedestrian-sized obstacles), update the GPS waypoint route, screen-record the demo.
-9. Winter break: navigation weights / costmap tuning, Collision Monitor fix + stop zone, Step 14 (OSM campus world + `map` tilt fix), Step 15 (Route Server, click-to-go), ramp + terrain classifier.
+9. Winter break: GPS keepout zones (Nav2 Keepout Filter, fixed `navsat` datum, see [roadmap.md](roadmap.md#future-work-gps-keepout-zones-stay-off-the-grass)), navigation weights / costmap tuning, Collision Monitor fix + stop zone, Step 14 (OSM campus world + `map` tilt fix), Step 15 (Route Server, click-to-go), ramp + terrain classifier.
 10. Spring: custom PCBs / micro-ROS, sim → real.
 
 ## Gotchas so far

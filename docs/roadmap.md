@@ -167,19 +167,34 @@ Detailed checklist (code changes + what the EE team needs to provide): [sim-to-r
 - Hardware-in-the-loop testing: real ESP32 and motors, simulated world.
 - Multi-arch Docker image (amd64 for PCs, arm64 for the Pi).
 
+### Future work: GPS keepout zones (stay off the grass)
+
+Idea (2026-11-24): a georeferenced map of where the robot may and may not drive, so the planner **never considers** grass, flower beds, roads or building entrances. No custom code needed for the Nav2 side; it's configuration plus a map image.
+
+- **Nav2 Keepout Filter** (a "costmap filter"): a **filter mask** (a black/white PGM image + YAML, like a normal map) marks forbidden areas as lethal in both costmaps. The planner and controller treat them like walls. A **Speed Filter** uses the same kind of mask for slow zones (crowded walkways, near doors).
+- **Building the mask:** sidewalk polygons from OpenStreetMap, or traced on aerial imagery in QGIS → convert lat/lon to `map` x/y with the same origin as `navsat_transform` → rasterize (white = allowed, black = keepout, ~0.1 m per pixel). A small Python script can do it.
+- **Prerequisites (do these first):**
+  - **Fixed GPS datum:** `navsat_transform` has `wait_for_datum: false` today, so the `map` origin is wherever the robot gets its first GPS fix and moves every run. A mask needs a fixed origin: set `wait_for_datum: true` + `datum: [lat, lon, heading]`.
+  - **`map` frame tilt fix** (~9.2° magnetic vs true, see [session-resume.md](session-resume.md)): a mask drawn in true east/north would be rotated against the tilted `map` frame.
+  - **RTK:** with ~2 cm accuracy, a mask can follow a 1.5–3 m sidewalk. Standard GPS (~2 m) couldn't.
+- **How it fits with the rest:** the Route Server (Step 15) picks *which* sidewalks to follow, the keepout mask makes sure it can't cut across the grass, and the terrain classifier (below) handles curbs and drop-offs the map doesn't know about. Only the classifier needs custom code (a node, or a C++ costmap layer for v2).
+- Sim first: draw a mask for `test_world` (e.g. block one side of the curb) and check the planner routes around it.
+- Docs: [Nav2 Keepout Filter tutorial](https://docs.nav2.org/tutorials/docs/navigation2_with_keepout_filter.html), [Speed Filter](https://docs.nav2.org/tutorials/docs/navigation2_with_speed_filter.html), [navsat_transform datum](https://docs.ros.org/en/jazzy/p/robot_localization/navsat_transform_node.html)
+
 ### Phase 3 (optional): LLM goal planner
 
 - Small local LLM turns requests ("go to the library") into goals. Not in the realtime loop.
 
 ## Open questions
 
-- [ ] Does RTK GPS fit the budget? Is there a free NTRIP service near campus?
+- [x] Does RTK GPS fit the budget? Is there a free NTRIP service near campus? **Yes** (2026-11-24): RTK decided, Indiana InCORS is free (registration).
 - [x] Curb sensor: depth camera or tilted lidar? **Tilted 2D lidar** (cost), decided 2026-11-09 after the sim comparison.
 - [ ] Drivetrain: motors, controller, chassis that can climb curbs within budget.
 - [ ] Is `nav2_route` packaged for Jazzy?
 - [ ] Curbs: climb them (project goal) or only use curb cuts? Decides whether a detected edge means "stop" or "slow down and climb".
 - [ ] Terrain classifier on the curb lidar: label flat / ramp / small step / ledge / drop by shape (slope + jumps), mark only unsafe edges. Small steps (2–7 cm) = medium cost (needs a C++ costmap layer, v2). Thresholds from real lidar + real curbs. Also: long uphills look like walls to the 360° lidar.
 - [ ] Max climbable step height and slope (up and down) for the real drivetrain.
+- [ ] Keepout mask source: OSM sidewalks or hand-traced from aerial imagery? Who maintains it when campus changes?
 
 ## References
 
